@@ -1,27 +1,25 @@
 'use client'
-import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
-
-interface CounterData {
-  objectId: string;
-  value: number;
-  owner: string;
-}
-
-function getCounterFields(data: any): { value: number; owner: string } | null {
-  if (data?.content?.dataType !== "moveObject") {
-    return null;
-  }
-  return data.content.fields as { value: number; owner: string };
-}
+import { useState, useMemo } from "react";
+import { useSuiClient } from "@mysten/dapp-kit";
+import type { CounterData } from "../services";
+import { createCounterService } from "../services";
+import { useNetworkVariable } from "../networkConfig";
 
 export function CounterList({ onSelectCounter }: { onSelectCounter: (id: string) => void }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<CounterData[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Create counter service directly
+  const suiClient = useSuiClient();
+  const counterPackageId = useNetworkVariable("counterPackageId");
+  const counterService = useMemo(
+    () => createCounterService(suiClient, counterPackageId),
+    [suiClient, counterPackageId]
+  );
 
   const searchCounters = async () => {
     if (!searchQuery.trim()) {
@@ -35,31 +33,13 @@ export function CounterList({ onSelectCounter }: { onSelectCounter: (id: string)
     try {
       // Search by object ID if it's a valid Sui object ID
       if (searchQuery.startsWith("0x") && searchQuery.length === 66) {
-        // Create Sui client and query directly
-        const client = new SuiClient({ url: getFullnodeUrl("testnet") });
+        // Use service to get counter
+        const counter = await counterService.getCounter(searchQuery);
         
-        const object = await client.getObject({
-          id: searchQuery,
-          options: {
-            showContent: true,
-            showOwner: true,
-            showType: true,
-          },
-        });
-
-        if (object.data && object.data.content?.dataType === "moveObject") {
-          const fields = getCounterFields(object.data);
-          if (fields) {
-            setSearchResults([{
-              objectId: searchQuery,
-              value: fields.value,
-              owner: fields.owner,
-            }]);
-          } else {
-            setError("Object found but is not a counter");
-          }
+        if (counter) {
+          setSearchResults([counter]);
         } else {
-          setError("Object not found or invalid");
+          setError("Object not found or is not a valid counter");
         }
       } else {
         setError("Please enter a valid Sui object ID (starts with 0x and is 66 characters long)");

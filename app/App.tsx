@@ -5,13 +5,14 @@ import { useState, useEffect } from "react";
 import { Counter } from "./Counter";
 import { CreateCounter } from "./CreateCounter";
 import { CounterList } from "./components/CounterList";
+import { WalrusUpload } from "./WalrusUpload";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 function App() {
   const currentAccount = useCurrentAccount();
   const [counterId, setCounter] = useState<string | null>(null);
-  const [view, setView] = useState<'create' | 'search' | 'counter'>('create');
+  const [view, setView] = useState<'create' | 'search' | 'counter' | 'walrus'>('create');
 
   useEffect(() => {
     const hash = window.location.hash.slice(1);
@@ -66,7 +67,7 @@ function App() {
             ) : (
               <div className="space-y-6">
                 {/* Navigation with proper styling */}
-                <div className="flex justify-center space-x-4">
+                <div className="flex justify-center space-x-4 flex-wrap gap-y-2">
                   <Button
                     variant={view === 'create' ? 'default' : 'outline'}
                     onClick={() => setView('create')}
@@ -87,6 +88,16 @@ function App() {
                   >
                     Find Existing Counter
                   </Button>
+                  <Button
+                    variant={view === 'walrus' ? 'default' : 'outline'}
+                    onClick={() => setView('walrus')}
+                    className={view === 'walrus' 
+                      ? 'bg-purple-600 hover:bg-purple-700 text-white' 
+                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }
+                  >
+                    📦 Walrus Storage
+                  </Button>
                 </div>
 
                 {/* Content based on view */}
@@ -96,6 +107,10 @@ function App() {
                 
                 {view === 'search' && (
                   <CounterList onSelectCounter={handleCounterSelected} />
+                )}
+
+                {view === 'walrus' && (
+                  <WalrusUpload />
                 )}
               </div>
             )
