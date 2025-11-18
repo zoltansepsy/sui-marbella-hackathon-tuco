@@ -46,7 +46,9 @@ function App() {
     <div className="container mx-auto p-6">
       <Card className="min-h-[500px]">
         <CardContent className="pt-6">
-          {currentAccount ? (
+          {view === 'resources' ? (
+            <Resources />
+          ) : currentAccount ? (
             counterId ? (
               <div className="space-y-4">
                 {/* Back button when viewing a counter */}
@@ -123,10 +125,6 @@ function App() {
                 </div>
 
                 {/* Content based on view */}
-                {view === 'resources' && (
-                  <Resources />
-                )}
-
                 {view === 'create' && (
                   <CreateCounter onCreated={handleCounterCreated} />
                 )}
@@ -145,9 +143,29 @@ function App() {
               </div>
             )
           ) : (
-            <div className="text-center py-12">
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Welcome to Counter App</h2>
-              <p className="text-gray-600">Please connect your wallet to get started</p>
+            <div className="space-y-6">
+              {/* Navigation for non-logged in users */}
+              <div className="flex justify-center space-x-4 flex-wrap gap-y-2">
+                <Button
+                  variant={view === 'resources' ? 'default' : 'outline'}
+                  onClick={() => setView('resources')}
+                  className={view === 'resources' 
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white' 
+                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }
+                >
+                  📚 Resources
+                </Button>
+              </div>
+
+              {view === 'resources' ? (
+                <Resources />
+              ) : (
+                <div className="text-center py-12">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-2">Welcome to Counter App</h2>
+                  <p className="text-gray-600">Please connect your wallet to get started</p>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

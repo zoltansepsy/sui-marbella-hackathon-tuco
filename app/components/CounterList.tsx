@@ -66,12 +66,12 @@ export function CounterList({
             Find Existing Counters
           </h2>
           <a
-            href="https://www.typescriptlang.org/docs/"
+            href="https://sdk.mystenlabs.com/typescript"
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-blue-600 hover:text-blue-800 underline"
           >
-            📘 TypeScript Docs
+            📘 TypeScript SDK
           </a>
         </div>
         <p className="text-gray-600 mb-6">

@@ -83,9 +83,23 @@ export default function Navbar() {
           </NavigationMenuItem>
         </div>
 
-        <NavigationMenuItem className="flex ml-auto">
-          <ConnectButton />
-        </NavigationMenuItem>
+        <div className="flex items-center gap-4 ml-auto">
+          <NavigationMenuItem>
+            <NavigationMenuLink asChild>
+              <a
+                href="https://sdk.mystenlabs.com/dapp-kit"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 hover:text-blue-800 underline"
+              >
+                📘 dApp Kit
+              </a>
+            </NavigationMenuLink>
+          </NavigationMenuItem>
+          <NavigationMenuItem>
+            <ConnectButton />
+          </NavigationMenuItem>
+        </div>
       </NavigationMenuList>
     </NavigationMenu>
   );

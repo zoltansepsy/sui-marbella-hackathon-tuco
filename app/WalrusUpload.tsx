@@ -833,21 +833,30 @@ export function WalrusUpload() {
             <p className="mt-4">
               <strong>Documentation:</strong>{" "}
               <a
-                href="https://docs.walrus.space"
+                href="https://sdk.mystenlabs.com/walrus"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline"
               >
-                Walrus Documentation
+                Walrus SDK
               </a>{" "}
               •{" "}
               <a
-                href="https://www.typescriptlang.org/docs/"
+                href="https://github.com/MystenLabs/awesome-walrus?tab=readme-ov-file#sdks"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline"
               >
-                TypeScript Documentation
+                Awesome Walrus
+              </a>{" "}
+              •{" "}
+              <a
+                href="https://docs.wal.app/usage/started.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+              >
+                Getting Started
               </a>
             </p>
           </CardContent>

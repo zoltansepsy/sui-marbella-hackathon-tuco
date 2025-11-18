@@ -949,7 +949,7 @@ export function SealWhitelist() {
             <p className="mt-4">
               <strong>Documentation:</strong>{" "}
               <a
-                href="https://github.com/MystenLabs/seal"
+                href="https://github.com/MystenLabs/awesome-seal/?tab=readme-ov-file"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline"
@@ -958,30 +958,12 @@ export function SealWhitelist() {
               </a>{" "}
               •{" "}
               <a
-                href="https://sdk.mystenlabs.com/seal"
+                href="https://seal-docs.wal.app/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline"
               >
-                Seal SDK Documentation
-              </a>{" "}
-              •{" "}
-              <a
-                href="https://seal-docs.wal.app/Design/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-              >
-                Seal Design
-              </a>{" "}
-              •{" "}
-              <a
-                href="https://seal-docs.wal.app/UsingSeal/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-              >
-                Using Seal
+                Seal Documentation
               </a>
             </p>
           </CardContent>
