@@ -51,22 +51,10 @@ export function CreateCounter({
   return (
     <Card className="max-w-md mx-auto">
       <CardHeader>
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="text-gray-900">Create New Counter</CardTitle>
-            <CardDescription className="text-gray-600">
-              Create a new counter that you can increment and reset. You'll be the owner of this counter.
-            </CardDescription>
-          </div>
-          <a
-            href="https://sdk.mystenlabs.com/typescript"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-blue-600 hover:text-blue-800 underline"
-          >
-            📘 TypeScript SDK
-          </a>
-        </div>
+        <CardTitle className="text-gray-900">Create New Counter</CardTitle>
+        <CardDescription className="text-gray-600">
+          Create a new counter that you can increment and reset. You'll be the owner of this counter.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Button

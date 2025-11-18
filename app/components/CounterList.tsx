@@ -39,7 +39,7 @@ export function CounterList({
       if (searchQuery.startsWith("0x") && searchQuery.length === 66) {
         // Use service to get counter
         const counter = await counterService.getCounter(searchQuery);
-
+        
         if (counter) {
           setSearchResults([counter]);
         } else {
@@ -61,19 +61,9 @@ export function CounterList({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <div className="flex justify-center items-center gap-4 mb-4">
-          <h2 className="text-2xl font-bold text-gray-900">
-            Find Existing Counters
-          </h2>
-          <a
-            href="https://sdk.mystenlabs.com/typescript"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-blue-600 hover:text-blue-800 underline"
-          >
-            📘 TypeScript SDK
-          </a>
-        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">
+          Find Existing Counters
+        </h2>
         <p className="text-gray-600 mb-6">
           Search for existing counter objects by their Object ID
         </p>
@@ -93,7 +83,7 @@ export function CounterList({
               onChange={(e) => setSearchQuery(e.target.value)}
               className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
             />
-            <Button
+            <Button 
               onClick={searchCounters}
               disabled={isSearching}
               className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -133,7 +123,7 @@ export function CounterList({
                       {counter.objectId.slice(-8)}
                     </p>
                   </div>
-                  <Button
+                  <Button 
                     onClick={() => onSelectCounter(counter.objectId)}
                     size="sm"
                     className="bg-green-600 hover:bg-green-700 text-white"

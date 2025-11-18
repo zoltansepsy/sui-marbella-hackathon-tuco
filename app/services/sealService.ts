@@ -4,6 +4,30 @@ import { SealClient, SessionKey } from "@mysten/seal";
 import { Transaction } from "@mysten/sui/transactions";
 import { fromHex } from "@mysten/sui/utils";
 
+/**
+ * Available Seal key server object IDs for testnet (open mode)
+ */
+export const SEAL_TESTNET_SERVERS = {
+  "Mysten Testnet 1":
+    "0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75",
+  "Mysten Testnet 2":
+    "0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8",
+  "Studio Mirai":
+    "0x164ac3d2b3b8694b8181c13f671950004765c23f270321a45fdd04d40cccf0f2",
+  Overclock:
+    "0x9c949e53c36ab7a9c484ed9e8b43267a77d4b8d70e79aa6b39042e3d4c434105",
+  "H2O Nodes":
+    "0x39cef09b24b667bc6ed54f7159d82352fe2d5dd97ca9a5beaa1d21aa774f25a2",
+  "Ruby Nodes":
+    "0x6068c0acb197dddbacd4746a9de7f025b2ed5a5b6c1b1ab44dade4426d141da2",
+  NodeInfra:
+    "0x5466b7df5c15b508678d51496ada8afab0d6f70a01c10613123382b1b8131007",
+  RpcPool: "0x4cded1abeb52a22b6becb42a91d3686a4c901cf52eee16234214d0b5b2da4c46",
+  Natsai: "0x3c93ec1474454e1b47cf485a4e5361a5878d722b9492daf10ef626a76adc3dad",
+  "Mhax.io":
+    "0x6a0726a1ea3d62ba2f2ae51104f2c3633c003fb75621d06fde47f04dc930ba06",
+} as const;
+
 export interface SealConfig {
   network?: "testnet" | "mainnet";
   serverObjectIds?: string[];
@@ -25,9 +49,9 @@ export class SealService {
     this.suiClient = new SuiClient({ url: getFullnodeUrl(network) });
 
     // Default Seal key server object IDs for testnet
+    // Use the first Mysten server by default, but allow custom selection
     const serverObjectIds = config?.serverObjectIds || [
-      "0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75",
-      "0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8",
+      SEAL_TESTNET_SERVERS["Mysten Testnet 1"],
     ];
 
     this.client = new SealClient({
@@ -83,6 +107,8 @@ export class SealService {
         id: id,
         data,
       });
+      console.log("encryptedBytes", encryptedBytes);
+      console.log("backupKey", backupKey);
 
     return { encryptedBytes, backupKey };
   }
@@ -159,6 +185,10 @@ export class SealService {
       sessionKey,
       txBytes,
     });
+    console.log("decryptedBytes", decryptedBytes);
+    // Convert bytes to text
+    const decryptedText = new TextDecoder().decode(decryptedBytes);
+    console.log("decryptedText", decryptedText);
 
     return decryptedBytes;
   }

@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import { useCurrentAccount } from "@mysten/dapp-kit";
 import { isValidSuiObjectId } from "@mysten/sui/utils";
 import { useState, useEffect } from "react";
@@ -10,50 +10,49 @@ import { SealWhitelist } from "./SealWhitelist";
 import { Resources } from "./Resources";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useView } from "./contexts/ViewContext";
 
 function App() {
   const currentAccount = useCurrentAccount();
   const [counterId, setCounter] = useState<string | null>(null);
-  const [view, setView] = useState<'create' | 'search' | 'counter' | 'walrus' | 'seal' | 'resources'>('create');
+  const { view, setView } = useView();
 
   useEffect(() => {
     const hash = window.location.hash.slice(1);
     if (isValidSuiObjectId(hash)) {
       setCounter(hash);
-      setView('counter');
+      setView("counter");
     }
-  }, []);
+  }, [setView]);
 
   const handleCounterCreated = (id: string) => {
     window.location.hash = id;
     setCounter(id);
-    setView('counter');
+    setView("counter");
   };
 
   const handleCounterSelected = (id: string) => {
     window.location.hash = id;
     setCounter(id);
-    setView('counter');
+    setView("counter");
   };
 
   const goBackToSelection = () => {
     setCounter(null);
-    setView('create');
-    window.location.hash = '';
+    setView("home");
+    window.location.hash = "";
   };
 
   return (
     <div className="container mx-auto p-6">
       <Card className="min-h-[500px]">
         <CardContent className="pt-6">
-          {view === 'resources' ? (
-            <Resources />
-          ) : currentAccount ? (
+          {currentAccount ? (
             counterId ? (
               <div className="space-y-4">
                 {/* Back button when viewing a counter */}
                 <div className="flex justify-between items-center">
-                  <Button 
+                  <Button
                     onClick={goBackToSelection}
                     variant="outline"
                     className="border-gray-300 text-gray-700 hover:bg-gray-50"
@@ -64,106 +63,103 @@ function App() {
                     Counter ID: {counterId.slice(0, 8)}...{counterId.slice(-8)}
                   </div>
                 </div>
-                
+
                 {/* Counter component */}
                 <Counter id={counterId} />
               </div>
             ) : (
               <div className="space-y-6">
-                {/* Navigation with proper styling */}
-                <div className="flex justify-center space-x-4 flex-wrap gap-y-2">
-                  <Button
-                    variant={view === 'resources' ? 'default' : 'outline'}
-                    onClick={() => setView('resources')}
-                    className={view === 'resources' 
-                      ? 'bg-amber-600 hover:bg-amber-700 text-white' 
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }
-                  >
-                    📚 Resources
-                  </Button>
-                  <Button
-                    variant={view === 'create' ? 'default' : 'outline'}
-                    onClick={() => setView('create')}
-                    className={view === 'create' 
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }
-                  >
-                    Create New Counter
-                  </Button>
-                  <Button
-                    variant={view === 'search' ? 'default' : 'outline'}
-                    onClick={() => setView('search')}
-                    className={view === 'search' 
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }
-                  >
-                    Find Existing Counter
-                  </Button>
-                  <Button
-                    variant={view === 'walrus' ? 'default' : 'outline'}
-                    onClick={() => setView('walrus')}
-                    className={view === 'walrus' 
-                      ? 'bg-purple-600 hover:bg-purple-700 text-white' 
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }
-                  >
-                    📦 Walrus Storage
-                  </Button>
-                  <Button
-                    variant={view === 'seal' ? 'default' : 'outline'}
-                    onClick={() => setView('seal')}
-                    className={view === 'seal' 
-                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }
-                  >
-                    🔐 Seal Whitelist
-                  </Button>
-                </div>
-
                 {/* Content based on view */}
-                {view === 'create' && (
+                {view === "resources" && <Resources />}
+
+                {view === "home" && (
+                  <div className="space-y-6">
+                    {/* Feature Navigation Buttons */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Counter Section */}
+                      <Card className="p-4">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                          Counter
+                        </h3>
+                        <div className="flex flex-col gap-2">
+                          <Button
+                            onClick={() => setView("createCounter")}
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                            size="sm"
+                          >
+                            Create Counter
+                          </Button>
+                          <Button
+                            onClick={() => setView("search")}
+                            variant="outline"
+                            className="w-full border-gray-300 text-gray-700 hover:bg-gray-50"
+                            size="sm"
+                          >
+                            Find Counter
+                          </Button>
+                        </div>
+                      </Card>
+
+                      {/* Walrus Section */}
+                      <Card className="p-4">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                          Walrus Storage
+                        </h3>
+                        <Button
+                          onClick={() => setView("walrus")}
+                          className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                          size="sm"
+                        >
+                          Upload Files
+                        </Button>
+                      </Card>
+
+                      {/* Seal Section */}
+                      <Card className="p-4">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                          Seal Encryption
+                        </h3>
+                        <Button
+                          onClick={() => setView("seal")}
+                          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
+                          size="sm"
+                        >
+                          Seal Whitelist
+                        </Button>
+                      </Card>
+                    </div>
+                  </div>
+                )}
+
+                {view === "createCounter" && (
                   <CreateCounter onCreated={handleCounterCreated} />
                 )}
-                
-                {view === 'search' && (
+
+                {view === "search" && (
                   <CounterList onSelectCounter={handleCounterSelected} />
                 )}
 
-                {view === 'walrus' && (
-                  <WalrusUpload />
-                )}
+                {view === "walrus" && <WalrusUpload />}
 
-                {view === 'seal' && (
-                  <SealWhitelist />
-                )}
+                {view === "seal" && <SealWhitelist />}
               </div>
             )
           ) : (
             <div className="space-y-6">
-              {/* Navigation for non-logged in users */}
-              <div className="flex justify-center space-x-4 flex-wrap gap-y-2">
-                <Button
-                  variant={view === 'resources' ? 'default' : 'outline'}
-                  onClick={() => setView('resources')}
-                  className={view === 'resources' 
-                    ? 'bg-amber-600 hover:bg-amber-700 text-white' 
-                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }
-                >
-                  📚 Resources
-                </Button>
-              </div>
-
-              {view === 'resources' ? (
+              {view === "resources" ? (
                 <Resources />
               ) : (
                 <div className="text-center py-12">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">Welcome to Counter App</h2>
-                  <p className="text-gray-600">Please connect your wallet to get started</p>
+                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                    Welcome to Hackathon Starter
+                  </h2>
+                  <p className="text-gray-600 mb-4">
+                    Please connect your wallet to get started
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    All documentation and resources are available in the{" "}
+                    <strong>Resources</strong> tab in the navigation bar.
+                  </p>
                 </div>
               )}
             </div>

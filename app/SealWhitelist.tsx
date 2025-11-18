@@ -18,11 +18,13 @@ import {
 import {
   createSealService,
   createWhitelistService,
+  SEAL_TESTNET_SERVERS,
   type CapData,
 } from "./services";
 import ClipLoader from "react-spinners/ClipLoader";
 import { SessionKey } from "@mysten/seal";
 import { TESTNET_WHITELIST_PACKAGE_ID } from "./constants";
+import { generateUUID } from "./lib/utils";
 
 interface EncryptedItem {
   encryptedBytes: Uint8Array;
@@ -39,7 +41,11 @@ export function SealWhitelist() {
   const wallets = useWallets();
   const { mutate: signAndExecute } = useSignAndExecuteTransaction();
 
-  // Create seal service
+  // Seal server selection - must be declared before useMemo
+  const [selectedSealServer, setSelectedSealServer] =
+    useState<keyof typeof SEAL_TESTNET_SERVERS>("Mysten Testnet 1");
+
+  // Create seal service with selected server
   const sealService = useMemo(() => {
     if (typeof window === "undefined") {
       return null as any;
@@ -47,8 +53,9 @@ export function SealWhitelist() {
     return createSealService({
       network: "testnet",
       whitelistPackageId: TESTNET_WHITELIST_PACKAGE_ID,
+      serverObjectIds: [SEAL_TESTNET_SERVERS[selectedSealServer]],
     });
-  }, []);
+  }, [selectedSealServer]);
 
   // Create whitelist service
   const whitelistService = useMemo(() => {
@@ -82,6 +89,13 @@ export function SealWhitelist() {
   const [selectedCap, setSelectedCap] = useState<string>("");
   const [addressToAdd, setAddressToAdd] = useState("");
   const [addressToRemove, setAddressToRemove] = useState("");
+
+  // Manual decryption state (for decrypting data from another wallet)
+  const [manualEncryptedBytes, setManualEncryptedBytes] = useState("");
+  const [manualWhitelistId, setManualWhitelistId] = useState("");
+  const [manualNonce, setManualNonce] = useState("");
+  const [loadingManualDecrypt, setLoadingManualDecrypt] = useState(false);
+  const [decryptedResult, setDecryptedResult] = useState<string | null>(null);
 
   /**
    * Sign personal message using wallet
@@ -196,7 +210,7 @@ export function SealWhitelist() {
 
     try {
       // Generate random nonce if not provided
-      const encryptionNonce = nonce.trim() || crypto.randomUUID();
+      const encryptionNonce = nonce.trim() || generateUUID();
 
       // Convert text to bytes
       const data = new TextEncoder().encode(textToEncrypt);
@@ -543,6 +557,47 @@ export function SealWhitelist() {
               Only addresses on the whitelist can decrypt the data.
             </CardDescription>
           </CardHeader>
+        </Card>
+
+        {/* Seal Server Selection */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-black">
+              Seal Server Configuration
+            </CardTitle>
+            <CardDescription className="text-black">
+              Select which Seal key server to use for encryption/decryption.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div>
+              <label className="block text-sm font-medium text-black mb-2">
+                Seal Key Server
+              </label>
+              <select
+                value={selectedSealServer}
+                onChange={(e) => {
+                  setSelectedSealServer(
+                    e.target.value as keyof typeof SEAL_TESTNET_SERVERS,
+                  );
+                  // Reset session key when server changes
+                  setSessionKey(null);
+                  setSessionKeyCreatedAt(null);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black bg-white"
+              >
+                {Object.keys(SEAL_TESTNET_SERVERS).map((serverName) => (
+                  <option key={serverName} value={serverName}>
+                    {serverName}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-600 mt-1">
+                Current server:{" "}
+                {SEAL_TESTNET_SERVERS[selectedSealServer].slice(0, 20)}...
+              </p>
+            </div>
+          </CardContent>
         </Card>
 
         {/* Status Messages */}
@@ -946,25 +1001,9 @@ export function SealWhitelist() {
                 module
               </li>
             </ul>
-            <p className="mt-4">
-              <strong>Documentation:</strong>{" "}
-              <a
-                href="https://github.com/MystenLabs/awesome-seal/?tab=readme-ov-file"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-              >
-                ⭐ Awesome Seal GitHub
-              </a>{" "}
-              •{" "}
-              <a
-                href="https://seal-docs.wal.app/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-              >
-                Seal Documentation
-              </a>
+            <p className="mt-4 text-sm">
+              For documentation and resources, visit the{" "}
+              <strong>Resources</strong> tab in the navigation bar.
             </p>
           </CardContent>
         </Card>

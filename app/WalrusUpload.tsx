@@ -830,34 +830,9 @@ export function WalrusUpload() {
               <strong>Network:</strong> Testnet •{" "}
               <strong>Storage Duration:</strong> 10 epochs
             </p>
-            <p className="mt-4">
-              <strong>Documentation:</strong>{" "}
-              <a
-                href="https://sdk.mystenlabs.com/walrus"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-              >
-                Walrus SDK
-              </a>{" "}
-              •{" "}
-              <a
-                href="https://github.com/MystenLabs/awesome-walrus?tab=readme-ov-file#sdks"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-              >
-                Awesome Walrus
-              </a>{" "}
-              •{" "}
-              <a
-                href="https://docs.wal.app/usage/started.html"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-              >
-                Getting Started
-              </a>
+            <p className="mt-4 text-sm">
+              For documentation and resources, visit the{" "}
+              <strong>Resources</strong> tab in the navigation bar.
             </p>
           </CardContent>
         </Card>

@@ -14,7 +14,7 @@ export {
 } from "./walrusServiceSDK";
 export { getCounterFields } from "./types";
 export type { CounterData, CounterFields } from "./types";
-export { SealService, createSealService } from "./sealService";
+export { SealService, createSealService, SEAL_TESTNET_SERVERS } from "./sealService";
 export {
   WhitelistService,
   createWhitelistService,

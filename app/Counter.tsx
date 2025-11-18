@@ -45,8 +45,8 @@ export function Counter({ id }: { id: string }) {
     // Use service to create transaction
     const tx =
       method === "reset"
-        ? counterService.resetCounterTransaction(id)
-        : counterService.incrementCounterTransaction(id);
+      ? counterService.resetCounterTransaction(id)
+      : counterService.incrementCounterTransaction(id);
 
     signAndExecute(
       {
@@ -64,28 +64,28 @@ export function Counter({ id }: { id: string }) {
 
   if (isPending)
     return (
-      <Alert>
+    <Alert>
         <AlertDescription className="text-muted-foreground">
           Loading...
         </AlertDescription>
-      </Alert>
-    );
+    </Alert>
+  );
 
   if (error)
     return (
-      <Alert variant="destructive">
-        <AlertDescription>Error: {error.message}</AlertDescription>
-      </Alert>
-    );
+    <Alert variant="destructive">
+      <AlertDescription>Error: {error.message}</AlertDescription>
+    </Alert>
+  );
 
   if (!data.data)
     return (
-      <Alert>
+    <Alert>
         <AlertDescription className="text-muted-foreground">
           Not found
         </AlertDescription>
-      </Alert>
-    );
+    </Alert>
+  );
 
   const ownedByCurrentAccount =
     getCounterFields(data.data)?.owner === currentAccount?.address;
@@ -93,22 +93,10 @@ export function Counter({ id }: { id: string }) {
   return (
     <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
       <CardHeader>
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="text-gray-900">Counter {id}</CardTitle>
-            <CardDescription className="text-gray-600">
-              Count: {getCounterFields(data.data)?.value}
-            </CardDescription>
-          </div>
-          <a
-            href="https://sdk.mystenlabs.com/typescript"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-blue-600 hover:text-blue-800 underline"
-          >
-            📘 TypeScript SDK
-          </a>
-        </div>
+        <CardTitle className="text-gray-900">Counter {id}</CardTitle>
+        <CardDescription className="text-gray-600">
+          Count: {getCounterFields(data.data)?.value}
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-row gap-2">
         <Button
