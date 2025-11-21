@@ -9,7 +9,7 @@
 /// 5. Test reputation calculations
 /// 6. Consider adding weighted ratings based on job value
 
-module startHack::reputation {
+module zk_freelance::reputation {
     use sui::event;
     use sui::clock::{Self, Clock};
     use std::string::{Self, String};

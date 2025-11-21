@@ -27,10 +27,10 @@ All Move contract files are created with:
 - Comprehensive comments
 
 **Files Created**:
-- [move/startHack/sources/job_escrow.move](move/startHack/sources/job_escrow.move)
-- [move/startHack/sources/profile_nft.move](move/startHack/sources/profile_nft.move)
-- [move/startHack/sources/milestone.move](move/startHack/sources/milestone.move)
-- [move/startHack/sources/reputation.move](move/startHack/sources/reputation.move)
+- [move/zk_freelance/sources/job_escrow.move](move/zk_freelance/sources/job_escrow.move)
+- [move/zk_freelance/sources/profile_nft.move](move/zk_freelance/sources/profile_nft.move)
+- [move/zk_freelance/sources/milestone.move](move/zk_freelance/sources/milestone.move)
+- [move/zk_freelance/sources/reputation.move](move/zk_freelance/sources/reputation.move)
 
 ### ✅ Service Layer (Dev 2 Domain)
 
@@ -106,7 +106,7 @@ Comprehensive documentation in [CLAUDE.md](CLAUDE.md):
 
 **Testing Checklist**:
 ```bash
-cd move/startHack
+cd move/zk_freelance
 sui move test
 sui move build
 ```
@@ -256,7 +256,7 @@ git checkout -b feature/ui
 
 ### Contract Testing (Dev 1)
 ```bash
-cd move/startHack
+cd move/zk_freelance
 sui move test --coverage
 sui move build
 ```
@@ -319,8 +319,8 @@ sui move build
 - Seal docs: https://docs.seal.su/
 
 ### Existing Code to Reference
-- Counter example: [move/startHack/sources/counter.move](move/startHack/sources/counter.move)
-- Whitelist example: [move/startHack/sources/whitelist.move](move/startHack/sources/whitelist.move)
+- Counter example: [move/zk_freelance/sources/counter.move](move/zk_freelance/sources/counter.move)
+- Whitelist example: [move/zk_freelance/sources/whitelist.move](move/zk_freelance/sources/whitelist.move)
 - Counter service: [app/services/counterService.ts](app/services/counterService.ts)
 - Walrus upload: [app/WalrusUpload.tsx](app/WalrusUpload.tsx)
 - Seal integration: [app/SealWhitelist.tsx](app/SealWhitelist.tsx)

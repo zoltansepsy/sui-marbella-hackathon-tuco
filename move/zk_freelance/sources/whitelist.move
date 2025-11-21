@@ -16,7 +16,7 @@
 ///
 /// This pattern implements versioning per whitelist.
 ///
-module startHack::whitelist {
+module zk_freelance::whitelist {
 
     use sui::table;
     use sui::tx_context;

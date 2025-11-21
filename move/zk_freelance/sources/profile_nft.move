@@ -9,7 +9,7 @@
 /// 5. Test profile updates and queries
 /// 6. Consider adding profile verification system
 
-module startHack::profile_nft {
+module zk_freelance::profile_nft {
     use std::string::{Self, String};
     use sui::event;
     use sui::clock::{Self, Clock};

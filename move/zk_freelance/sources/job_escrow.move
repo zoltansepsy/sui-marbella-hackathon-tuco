@@ -9,7 +9,7 @@
 /// 5. Test all state transitions
 /// 6. Add comprehensive error codes
 
-module startHack::job_escrow {
+module zk_freelance::job_escrow {
     use sui::coin::{Self, Coin};
     use sui::balance::{Self, Balance};
     use sui::sui::SUI;

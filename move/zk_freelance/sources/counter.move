@@ -6,7 +6,7 @@
 /// - anyone can create and share a counter
 /// - everyone can increment a counter by 1
 /// - the owner of the counter can reset it to any value
-module startHack::counter {
+module zk_freelance::counter {
 
   use sui::event::{Self, emit};
   use sui::clock::{Self, Clock};

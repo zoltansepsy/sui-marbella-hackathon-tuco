@@ -9,7 +9,7 @@
 /// 5. Test integration with job_escrow
 /// 6. Consider adding milestone templates
 
-module startHack::milestone {
+module zk_freelance::milestone {
     use sui::event;
     use sui::clock::{Self, Clock};
     use std::string::{Self, String};

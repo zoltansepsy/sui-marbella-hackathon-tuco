@@ -27,11 +27,11 @@ This is a Next.js dApp built on the Sui blockchain featuring a **Zero-Knowledge 
 
 ### Phase 1 - Hackathon Core (3 Developers)
 
-**Dev 1 (Smart Contract Lead)**: Move contracts in [move/startHack/sources/](move/startHack/sources/)
-- [job_escrow.move](move/startHack/sources/job_escrow.move) - Job posting, escrow, state machine
-- [profile_nft.move](move/startHack/sources/profile_nft.move) - Dynamic NFT profiles
-- [milestone.move](move/startHack/sources/milestone.move) - Milestone management
-- [reputation.move](move/startHack/sources/reputation.move) - Rating system
+**Dev 1 (Smart Contract Lead)**: Move contracts in [move/zk_freelance/sources/](move/zk_freelance/sources/)
+- [job_escrow.move](move/zk_freelance/sources/job_escrow.move) - Job posting, escrow, state machine
+- [profile_nft.move](move/zk_freelance/sources/profile_nft.move) - Dynamic NFT profiles
+- [milestone.move](move/zk_freelance/sources/milestone.move) - Milestone management
+- [reputation.move](move/zk_freelance/sources/reputation.move) - Rating system
 
 **Dev 2 (Integration Lead)**: Service layer in [app/services/](app/services/)
 - [jobService.ts](app/services/jobService.ts) - Job operations
@@ -77,15 +77,15 @@ pnpm lint:fix
 ## Smart Contract Development
 
 ### Move Package Location
-- All Move smart contracts are in [move/startHack/](move/startHack/)
-- Package name: `startHack`
+- All Move smart contracts are in [move/zk_freelance/](move/zk_freelance/)
+- Package name: `zk_freelance`
 - Modules: `counter` and `whitelist`
 
 ### Deploying Smart Contracts
 
 ```bash
 # Navigate to Move directory
-cd move/startHack
+cd move/zk_freelance
 
 # Build (check for errors)
 sui move build
@@ -112,7 +112,7 @@ export const TESTNET_REPUTATION_PACKAGE_ID = "0xYOUR_NEW_PACKAGE_ID";
 
 ### Job Lifecycle & State Machine
 
-**Job States** ([job_escrow.move:17-24](move/startHack/sources/job_escrow.move#L17-L24)):
+**Job States** ([job_escrow.move:17-24](move/zk_freelance/sources/job_escrow.move#L17-L24)):
 1. **OPEN** (0) - Job posted, accepting applications
 2. **ASSIGNED** (1) - Freelancer selected, not yet started
 3. **IN_PROGRESS** (2) - Work actively being done
@@ -134,7 +134,7 @@ OPEN/ASSIGNED → CANCELLED (client cancels before work starts)
 
 ### Smart Contract Modules
 
-#### 1. Job Escrow Module ([job_escrow.move](move/startHack/sources/job_escrow.move))
+#### 1. Job Escrow Module ([job_escrow.move](move/zk_freelance/sources/job_escrow.move))
 
 **Core Functionality**:
 - **Job Creation**: Client posts job with description (Walrus blob ID) and budget
@@ -176,7 +176,7 @@ public struct JobCap has key, store {
 - `add_milestone()` - Client adds milestone before assignment
 - `cancel_job()` - Client cancels, refunds escrow
 
-#### 2. Profile NFT Module ([profile_nft.move](move/startHack/sources/profile_nft.move))
+#### 2. Profile NFT Module ([profile_nft.move](move/zk_freelance/sources/profile_nft.move))
 
 **Core Functionality**:
 - **Dynamic NFTs**: Profile data updates on-chain (not static metadata)
@@ -216,7 +216,7 @@ public struct ProfileCap has key, store {
 - `record_job_completion()` - Update stats when job completes
 - `add_active_job()` / `remove_active_job()` - Manage active jobs
 
-#### 3. Reputation Module ([reputation.move](move/startHack/sources/reputation.move))
+#### 3. Reputation Module ([reputation.move](move/zk_freelance/sources/reputation.move))
 
 **Core Functionality**:
 - **Rating Submission**: Post-job ratings with reviews
@@ -404,7 +404,7 @@ The project uses a clean service layer architecture with three primary services 
 
 ### Whitelist Smart Contract Pattern
 
-The [whitelist.move](move/startHack/sources/whitelist.move) contract implements:
+The [whitelist.move](move/zk_freelance/sources/whitelist.move) contract implements:
 - **Whitelist**: Shared object containing allowed addresses
 - **Cap**: Owned object granting admin rights to manage the whitelist
 - **Access Control**: `seal_approve` validates decryption attempts
@@ -422,7 +422,7 @@ When using Seal with whitelist:
 - [app/constants.ts](app/constants.ts) - Package IDs for different networks
 - [app/networkConfig.ts](app/networkConfig.ts) - Network configuration for dApp-kit
 - [tsconfig.json](tsconfig.json) - Path alias: `@/*` → `./app/*`
-- [move/startHack/Move.toml](move/startHack/Move.toml) - Move package configuration
+- [move/zk_freelance/Move.toml](move/zk_freelance/Move.toml) - Move package configuration
 
 ## Walrus Integration Notes
 
