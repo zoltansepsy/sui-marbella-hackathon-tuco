@@ -110,3 +110,7 @@ temp/
 
 # Turbo
 .turbo
+
+# Node local assets
+.pnpm-store/
+package-lock.json
