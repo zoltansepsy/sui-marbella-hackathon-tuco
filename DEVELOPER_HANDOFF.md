@@ -82,6 +82,95 @@ Comprehensive documentation in [CLAUDE.md](CLAUDE.md):
 
 ---
 
+## Architecture Decision: Event-Based Job Discovery
+
+### Why Event-Based Indexing?
+
+**The Challenge**: We need to list all jobs across all clients for the marketplace, but:
+- Job objects are **shared objects** (not owned by anyone)
+- Sui doesn't support querying all shared objects of a type
+- We can't do "SELECT * FROM Jobs WHERE state = OPEN" on-chain
+
+**The Solution**: Event-Based Indexing (Industry Standard Pattern)
+
+This is the **proven Sui pattern** used by all production marketplaces (Kiosk, DEXs, NFT platforms):
+1. ✅ Smart contracts emit comprehensive events for all state changes
+2. ✅ Client queries events to discover jobs
+3. ✅ Optional: Fetch full Job object for current details
+
+### Why NOT Registry Pattern?
+
+We rejected creating a shared `JobMarketplace` registry because:
+- ❌ **Shared object contention**: Every job creation/update requires consensus
+- ❌ **Gas costs increase 5-10x** during high traffic
+- ❌ **Performance degrades at scale** - transactions serialize
+- ❌ Sui documentation explicitly warns against single shared objects
+
+### Implementation Overview
+
+```
+Smart Contract (Move)
+├─ Emit JobCreated event (with full job details)
+├─ Emit JobStateChanged event (for state tracking)
+└─ Emit FreelancerAssigned event (for freelancer queries)
+        ↓
+JobEventIndexer Service (TypeScript)
+├─ queryOpenJobs() → filters JobCreated + JobStateChanged
+├─ queryJobsByClient() → filters JobCreated by sender
+└─ queryJobsByFreelancer() → filters FreelancerAssigned events
+        ↓
+JobService (TypeScript)
+├─ getOpenJobs() → calls indexer, returns JobData[]
+├─ getJobsByClient() → calls indexer, returns JobData[]
+└─ getJobsByFreelancer() → calls indexer, returns JobData[]
+        ↓
+Hooks (React)
+├─ useOpenJobs() → useQuery with auto-refresh
+├─ useJobsByClient() → useQuery with caching
+└─ useJobsByFreelancer() → useQuery with caching
+        ↓
+UI Components
+└─ JobList displays jobs from hooks
+```
+
+### Key Files
+
+**Smart Contract**: [move/zk_freelance/sources/job_escrow.move](move/zk_freelance/sources/job_escrow.move)
+- Enhanced events with comprehensive data (lines 93-189)
+
+**Event Indexer**: [app/services/jobEventIndexer.ts](app/services/jobEventIndexer.ts) ✨ NEW
+- `queryOpenJobs()` - Marketplace listings
+- `queryJobsByClient()` - Client's posted jobs
+- `queryJobsByFreelancer()` - Freelancer's assigned jobs
+
+**Job Service**: [app/services/jobService.ts](app/services/jobService.ts)
+- Now calls event indexer instead of returning empty arrays
+- `getOpenJobs()`, `getJobsByClient()`, `getJobsByFreelancer()` fully implemented
+
+**Hooks**: [app/hooks/useJob.ts](app/hooks/useJob.ts)
+- All hooks now use `@tanstack/react-query` for caching
+- Auto-refresh every 30 seconds for live updates
+
+### For Developers
+
+**Dev 1 (Smart Contracts)**:
+- ✅ Events are already enhanced with all necessary fields
+- When implementing functions, **emit events with complete data**
+- Example: `JobCreated` includes title, budget, deadline, etc.
+
+**Dev 2 (Services)**:
+- ✅ Event indexing is fully implemented
+- Services now call `JobEventIndexer` methods
+- No need to return empty arrays anymore
+
+**Dev 3 (Frontend)**:
+- ✅ Hooks are ready to use
+- Call `useOpenJobs()` to get marketplace listings
+- Call `useJobsByClient(address)` for client's jobs
+- Data auto-refreshes every 30 seconds
+
+---
+
 ## Developer Tasks
 
 ### 🔧 Dev 1: Smart Contract Implementation
@@ -119,53 +208,124 @@ sui client publish --gas-budget 100000000 .
 
 **Key Patterns to Follow**:
 - Use `Balance<SUI>` for escrow (not `Coin<SUI>`)
-- Always emit events for state changes
+- **Always emit events for state changes** (CRITICAL for event-based indexing)
 - Use `Clock` object for timestamps
 - Validate state transitions in every function
 - Cap pattern for admin operations
+- Make Job a **shared object** with `transfer::share_object(job)`
+
+**Event Emission Example**:
+```move
+public fun create_job(...) {
+    // Create job object
+    let job = Job { ... };
+    let job_id = object::uid_to_inner(&job.id);
+
+    // Emit comprehensive event (REQUIRED for discovery)
+    event::emit(JobCreated {
+        job_id,
+        client: sender,
+        title,
+        description_blob_id,
+        budget,
+        deadline,
+        milestone_count: 0,
+        state: STATE_OPEN,
+        timestamp: clock::timestamp_ms(clock),
+    });
+
+    // Share the job object (makes it accessible to all)
+    transfer::share_object(job);
+
+    // Transfer capability to client
+    transfer::transfer(job_cap, sender);
+}
 
 ---
 
 ### 🔗 Dev 2: Service Layer Implementation
 
+**Status**: ✅ Event-based queries fully implemented
+
 **Priority Order**:
-1. **jobService.ts** (2-3 days)
-   - Implement transaction builders (follow TODOs)
-   - Add query methods
+1. **Transaction Builders** (1-2 days)
+   - Implement TODOs in jobService.ts transaction methods
+   - Follow pattern in commented code
    - Test with deployed contracts
 
 2. **profileService.ts** (1-2 days)
    - Implement profile operations
-   - Add profile queries
+   - Add profile queries (can follow job event pattern if needed)
 
-3. **Custom Hooks** (1 day)
-   - Implement useJob hooks with react-query
-   - Implement useProfile hooks
-   - Add caching and error handling
+3. **Testing** (ongoing)
+   - Test event queries work correctly
+   - Verify data parsing from events
 
-**Testing Pattern**:
+**Event-Based Query Architecture** (✅ Already Implemented):
+
+The query methods now use event-based indexing:
+
 ```typescript
-// Test in browser console
-const service = createJobService(suiClient, packageId);
-const tx = service.createJobTransaction(...);
-console.log(tx);
+// Example: How getOpenJobs() works
+async getOpenJobs(limit: number = 50): Promise<JobData[]> {
+  // 1. Create event indexer
+  const indexer = createJobEventIndexer(this.suiClient, this.packageId);
+
+  // 2. Query events (filters for OPEN state automatically)
+  const jobEvents = await indexer.queryOpenJobs(limit);
+
+  // 3. Convert event data to JobData format
+  const jobs = jobEvents.map(event => ({
+    objectId: event.jobId,
+    client: event.client,
+    title: event.title,
+    budget: event.budget,
+    state: event.state,
+    // ... other fields from event
+  }));
+
+  return jobs;
+}
 ```
+
+**What Dev 2 Needs to Do**:
+
+1. **Implement Transaction Builders** (Still TODO):
+   - `createJobTransaction()` - Build moveCall for create_job
+   - `applyForJobTransaction()` - Build moveCall for apply_for_job
+   - `assignFreelancerTransaction()` - Build moveCall for assign_freelancer
+   - etc. (follow TODOs in jobService.ts)
+
+2. **Test Event Queries** (After Dev 1 deploys):
+   ```typescript
+   const service = createJobService(suiClient, packageId);
+
+   // Test marketplace listing
+   const openJobs = await service.getOpenJobs();
+   console.log("Open jobs:", openJobs);
+
+   // Test client jobs
+   const myJobs = await service.getJobsByClient(myAddress);
+   console.log("My jobs:", myJobs);
+   ```
 
 **Key Patterns to Follow**:
 - Always use `useMemo` for service instances
 - Wait for transaction confirmation before refetching
 - Parse `vector<u8>` to strings with `vectorU8ToString`
 - Handle `Option` types properly
-- Use type guards for data validation
+- **Events provide discovery, Job objects provide current state**
 
 **Integration Points**:
 - Wait for Dev 1 to deploy contracts
 - Get package IDs and update constants.ts
-- Test all transaction builders in UI
+- Test event queries return data after jobs are created
 
 ---
 
 ### 🎨 Dev 3: Frontend Implementation
+
+**Status**: ✅ Hooks ready with event-based queries
 
 **Priority Order**:
 1. **Job Marketplace View** (2 days)
@@ -198,18 +358,64 @@ console.log(tx);
 - Import in `App.tsx` and replace placeholder views
 - Reusable components: `app/components/job/`, `app/components/profile/`
 
+**Using the Job Hooks** (✅ Ready to Use):
+
+```typescript
+import { useOpenJobs, useJobsByClient, useJob } from "@/hooks";
+
+// Marketplace view
+function JobMarketplace() {
+  const { jobs, isPending, error } = useOpenJobs(20);
+
+  if (isPending) return <div>Loading jobs...</div>;
+  if (error) return <Alert>Error: {error.message}</Alert>;
+
+  return (
+    <div>
+      {jobs.map(job => (
+        <JobCard key={job.objectId} job={job} />
+      ))}
+    </div>
+  );
+}
+
+// Client's posted jobs
+function MyPostedJobs() {
+  const { currentAccount } = useCurrentAccount();
+  const { jobs, isPending } = useJobsByClient(currentAccount?.address);
+
+  // Jobs auto-refresh every 30 seconds
+  return <JobList jobs={jobs} loading={isPending} />;
+}
+
+// Single job details
+function JobDetail({ jobId }: { jobId: string }) {
+  const { job, isPending, refetch } = useJob(jobId);
+
+  // Manually refetch after transaction
+  const handleApply = async () => {
+    // ... apply transaction ...
+    await refetch(); // Update UI
+  };
+
+  return job ? <div>{job.title}</div> : <div>Loading...</div>;
+}
+```
+
 **Key Patterns to Follow**:
 - Use existing UI components from `app/components/ui/`
 - Follow patterns in WalrusUpload.tsx and SealWhitelist.tsx
-- Always show loading states
+- Always show loading states (`isPending`)
 - Handle errors gracefully with Alert components
 - Use Button disabled states during transactions
+- **Data auto-refreshes** - no need to manually refetch unless after mutations
 
 **UI Libraries Available**:
 - shadcn/ui components (Card, Button, Alert, Input)
 - Radix UI (NavigationMenu, etc.)
 - Tailwind CSS for styling
 - lucide-react for icons
+- @tanstack/react-query (handles caching/refetching automatically)
 
 ---
 

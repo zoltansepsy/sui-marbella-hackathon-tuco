@@ -14,12 +14,12 @@
 import { useSuiClient } from "@mysten/dapp-kit";
 import { useNetworkVariable } from "../networkConfig";
 import { useMemo } from "react";
-import { createJobService, type JobData } from "../services";
+import { useQuery } from "@tanstack/react-query";
+import { createJobService } from "../services";
 
 /**
- * Hook to fetch job details
- *
- * TODO: Implement with useSuiClientQuery or react-query
+ * Hook to fetch job details by ID
+ * Uses @tanstack/react-query for caching and automatic refetching
  *
  * @param jobId Job object ID
  * @returns Job data, loading state, error, and refetch function
@@ -33,25 +33,25 @@ export function useJob(jobId: string | undefined) {
     [suiClient, jobPackageId]
   );
 
-  // TODO: Implement with useSuiClientQuery or useQuery
-  // const { data, isPending, error, refetch } = useQuery({
-  //   queryKey: ['job', jobId],
-  //   queryFn: () => jobService.getJob(jobId!),
-  //   enabled: !!jobId,
-  // });
+  const { data, isPending, error, refetch } = useQuery({
+    queryKey: ["job", jobId],
+    queryFn: () => jobService.getJob(jobId!),
+    enabled: !!jobId,
+    staleTime: 10000, // Consider data fresh for 10 seconds
+    refetchInterval: 30000, // Refetch every 30 seconds for live updates
+  });
 
   return {
-    job: null as JobData | null,
-    isPending: false,
-    error: null as Error | null,
-    refetch: async () => {},
+    job: data || null,
+    isPending,
+    error: error as Error | null,
+    refetch,
   };
 }
 
 /**
- * Hook to fetch jobs by client
- *
- * TODO: Implement
+ * Hook to fetch jobs posted by a client
+ * Uses event-based indexing to discover jobs
  *
  * @param clientAddress Client's address
  * @returns Array of jobs, loading state, error
@@ -65,20 +65,25 @@ export function useJobsByClient(clientAddress: string | undefined) {
     [suiClient, jobPackageId]
   );
 
-  // TODO: Implement
+  const { data, isPending, error, refetch } = useQuery({
+    queryKey: ["jobs", "client", clientAddress],
+    queryFn: () => jobService.getJobsByClient(clientAddress!),
+    enabled: !!clientAddress,
+    staleTime: 10000,
+    refetchInterval: 30000,
+  });
 
   return {
-    jobs: [] as JobData[],
-    isPending: false,
-    error: null as Error | null,
-    refetch: async () => {},
+    jobs: data || [],
+    isPending,
+    error: error as Error | null,
+    refetch,
   };
 }
 
 /**
- * Hook to fetch jobs by freelancer
- *
- * TODO: Implement
+ * Hook to fetch jobs assigned to a freelancer
+ * Uses FreelancerAssigned events to discover assigned jobs
  *
  * @param freelancerAddress Freelancer's address
  * @returns Array of jobs, loading state, error
@@ -92,24 +97,30 @@ export function useJobsByFreelancer(freelancerAddress: string | undefined) {
     [suiClient, jobPackageId]
   );
 
-  // TODO: Implement
+  const { data, isPending, error, refetch } = useQuery({
+    queryKey: ["jobs", "freelancer", freelancerAddress],
+    queryFn: () => jobService.getJobsByFreelancer(freelancerAddress!),
+    enabled: !!freelancerAddress,
+    staleTime: 10000,
+    refetchInterval: 30000,
+  });
 
   return {
-    jobs: [] as JobData[],
-    isPending: false,
-    error: null as Error | null,
-    refetch: async () => {},
+    jobs: data || [],
+    isPending,
+    error: error as Error | null,
+    refetch,
   };
 }
 
 /**
  * Hook to fetch open jobs for marketplace
+ * Uses event-based indexing to discover jobs filtered by OPEN state
  *
- * TODO: Implement
- *
+ * @param limit Maximum number of jobs to fetch (default: 50)
  * @returns Array of open jobs, loading state, error
  */
-export function useOpenJobs() {
+export function useOpenJobs(limit: number = 50) {
   const suiClient = useSuiClient();
   const jobPackageId = useNetworkVariable("jobEscrowPackageId");
 
@@ -118,12 +129,17 @@ export function useOpenJobs() {
     [suiClient, jobPackageId]
   );
 
-  // TODO: Implement
+  const { data, isPending, error, refetch } = useQuery({
+    queryKey: ["jobs", "open", limit],
+    queryFn: () => jobService.getOpenJobs(limit),
+    staleTime: 10000,
+    refetchInterval: 30000, // Auto-refresh marketplace every 30 seconds
+  });
 
   return {
-    jobs: [] as JobData[],
-    isPending: false,
-    error: null as Error | null,
-    refetch: async () => {},
+    jobs: data || [],
+    isPending,
+    error: error as Error | null,
+    refetch,
   };
 }
