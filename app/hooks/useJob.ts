@@ -65,10 +65,57 @@ export function useJobsByClient(clientAddress: string | undefined) {
     [suiClient, jobPackageId]
   );
 
-  // TODO: Implement
+  // TODO: Implement with real query
+  // For now, return mock data for UI development
+  const mockJobs: JobData[] = clientAddress ? [
+    {
+      objectId: "0x123",
+      client: clientAddress,
+      freelancer: "0xabc",
+      title: "Build a DeFi Dashboard",
+      descriptionBlobId: "mock-blob-1",
+      budget: 5000000000, // 5 SUI
+      state: 2, // IN_PROGRESS
+      milestones: [],
+      milestoneCount: 3,
+      applicants: ["0xabc", "0xdef"],
+      createdAt: Date.now() - 86400000 * 5,
+      deadline: Date.now() + 86400000 * 25,
+      deliverableBlobIds: [],
+    },
+    {
+      objectId: "0x456",
+      client: clientAddress,
+      title: "Smart Contract Audit",
+      descriptionBlobId: "mock-blob-2",
+      budget: 10000000000, // 10 SUI
+      state: 0, // OPEN
+      milestones: [],
+      milestoneCount: 2,
+      applicants: ["0x111", "0x222", "0x333"],
+      createdAt: Date.now() - 86400000 * 2,
+      deadline: Date.now() + 86400000 * 14,
+      deliverableBlobIds: [],
+    },
+    {
+      objectId: "0x789",
+      client: clientAddress,
+      freelancer: "0xzzz",
+      title: "NFT Marketplace Frontend",
+      descriptionBlobId: "mock-blob-3",
+      budget: 8000000000, // 8 SUI
+      state: 5, // COMPLETED
+      milestones: [],
+      milestoneCount: 4,
+      applicants: ["0xzzz"],
+      createdAt: Date.now() - 86400000 * 30,
+      deadline: Date.now() - 86400000 * 2,
+      deliverableBlobIds: ["walrus-blob-final"],
+    },
+  ] : [];
 
   return {
-    jobs: [] as JobData[],
+    jobs: mockJobs,
     isPending: false,
     error: null as Error | null,
     refetch: async () => {},

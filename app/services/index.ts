@@ -33,15 +33,17 @@ export { ReputationService, createReputationService } from "./reputationService"
 // Types
 export { getCounterFields, getJobFields, getProfileFields, vectorU8ToString } from "./types";
 export type { CounterData, CounterFields } from "./types";
+
+// Enums (must be exported as values, not types)
+export { JobState, ProfileType, BadgeTier } from "./types";
+
+// Type-only exports
 export type {
   JobData,
   JobCapData,
-  JobState,
   MilestoneData,
   ProfileData,
   ProfileCapData,
-  ProfileType,
   RatingData,
   BadgeData,
-  BadgeTier,
 } from "./types";
