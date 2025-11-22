@@ -199,6 +199,7 @@ module zk_freelance::job_escrow {
     /// Validates budget and deadline, creates Job object with escrow,
     /// creates JobCap for client, emits JobCreated event
     public fun create_job(
+        client_profile: &mut Profile,
         title: vector<u8>,
         description_blob_id: vector<u8>,
         budget: Coin<SUI>,
@@ -214,6 +215,7 @@ module zk_freelance::job_escrow {
         assert!(budget_amount > 0, EInsufficientFunds);
         assert!(deadline > timestamp, EDeadlinePassed);
         assert!(vector::length(&title) > 0, EInvalidState);
+        assert!(profile_nft::get_owner(client_profile) == sender, ENotAuthorized);
 
         // Create Job object
         let job_uid = object::new(ctx);
@@ -254,6 +256,9 @@ module zk_freelance::job_escrow {
             state: STATE_OPEN,
             timestamp,
         });
+
+        // Update client profile with active job
+        profile_nft::add_active_job(client_profile, job_id, clock);
 
         // Share job (makes it accessible to all)
         transfer::share_object(job);
@@ -297,15 +302,19 @@ module zk_freelance::job_escrow {
         job: &mut Job,
         cap: &JobCap,
         freelancer: address,
+        freelancer_profile: &mut Profile,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
         let timestamp = clock::timestamp_ms(clock);
+        let sender = tx_context::sender(ctx);
 
         // Validation
         verify_cap(job, cap);
+        assert!(sender == job.client, ENotAuthorized);
         assert!(job.state == STATE_OPEN, EInvalidState);
         assert!(vector::contains(&job.applicants, &freelancer), ENotAuthorized);
+        assert!(profile_nft::get_owner(freelancer_profile) == freelancer, ENotAuthorized);
 
         // State transition
         let old_state = job.state;
@@ -327,6 +336,9 @@ module zk_freelance::job_escrow {
             freelancer: option::some(freelancer),
             timestamp,
         });
+
+        // Update freelancer profile with active job
+        profile_nft::add_active_job(freelancer_profile, object::id(job), clock);
     }
 
     /// Start work on job (freelancer only)
@@ -424,6 +436,8 @@ module zk_freelance::job_escrow {
         job: &mut Job,
         cap: &JobCap,
         milestone_id: u64,
+        client_profile: &mut Profile,
+        freelancer_profile: &mut Profile,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
@@ -435,6 +449,10 @@ module zk_freelance::job_escrow {
         assert!(table::contains(&job.milestones, milestone_id), EInvalidMilestone);
         assert!(option::is_some(&job.freelancer), EFreelancerNotAssigned);
 
+        let freelancer = *option::borrow(&job.freelancer);
+        assert!(profile_nft::get_owner(client_profile) == job.client, ENotAuthorized);
+        assert!(profile_nft::get_owner(freelancer_profile) == freelancer, ENotAuthorized);
+
         // Get milestone
         let milestone = table::borrow_mut(&mut job.milestones, milestone_id);
         assert!(milestone.completed && !milestone.approved, EInvalidState);
@@ -443,7 +461,6 @@ module zk_freelance::job_escrow {
         milestone.approved = true;
         milestone.approved_at = option::some(timestamp);
 
-        let freelancer = *option::borrow(&job.freelancer);
         let amount = milestone.amount;
 
         // Release funds from escrow
@@ -470,7 +487,7 @@ module zk_freelance::job_escrow {
 
         // Check if all milestones approved
         if (all_milestones_approved(job)) {
-            complete_job(job, clock);
+            complete_job(job, client_profile, freelancer_profile, clock);
         } else {
             // Back to IN_PROGRESS for next milestone
             let old_state = job.state;
@@ -528,25 +545,24 @@ module zk_freelance::job_escrow {
         job.milestone_count = job.milestone_count + 1;
     }
 
-    /// Cancel job and refund (client only, before IN_PROGRESS)
+    /// Cancel job and refund (client only, before IN_PROGRESS, OPEN state - no freelancer)
     ///
     /// Validates JobCap, refunds escrow to client, transitions to CANCELLED
     public fun cancel_job(
         job: &mut Job,
         cap: &JobCap,
+        client_profile: &mut Profile,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
         let timestamp = clock::timestamp_ms(clock);
+        let job_id = object::id(job);
 
         // Validation
         verify_cap(job, cap);
-        assert!(
-            job.state == STATE_OPEN || job.state == STATE_ASSIGNED,
-            EInvalidState
-        );
+        assert!(job.state == STATE_OPEN, EInvalidState);
+        assert!(profile_nft::get_owner(client_profile) == job.client, ENotAuthorized);
 
-        let cancelled_state = job.state;
         let old_state = job.state;
         job.state = STATE_CANCELLED;
 
@@ -555,9 +571,12 @@ module zk_freelance::job_escrow {
         let refund = coin::take(&mut job.escrow, refund_amount, ctx);
         transfer::public_transfer(refund, job.client);
 
+        // Remove job from client profile
+        profile_nft::remove_active_job(client_profile, job_id, clock);
+
         // Emit events
         event::emit(FundsReleased {
-            job_id: object::id(job),
+            job_id,
             recipient: job.client,
             amount: refund_amount,
             reason: 2,  // 2 = refund
@@ -565,10 +584,10 @@ module zk_freelance::job_escrow {
         });
 
         event::emit(JobCancelled {
-            job_id: object::id(job),
+            job_id,
             client: job.client,
             refund_amount,
-            cancelled_state,
+            cancelled_state: old_state,
             timestamp,
         });
 
@@ -581,79 +600,77 @@ module zk_freelance::job_escrow {
         });
     }
 
-    // ======== Profile Integration Helper Functions ========
-
-    /// Update client profile when creating a job (optional, for better UX)
-    /// Call this AFTER create_job to track active jobs in profile
-    public fun add_job_to_client_profile(
-        job: &Job,
-        client_profile: &mut Profile,
-        clock: &Clock,
-    ) {
-        assert!(profile_nft::get_owner(client_profile) == job.client, ENotAuthorized);
-        profile_nft::add_active_job(client_profile, object::id(job), clock);
-    }
-
-    /// Update freelancer profile when assigned to job (optional, for better UX)
-    /// Call this AFTER assign_freelancer to track active jobs in profile
-    public fun add_job_to_freelancer_profile(
-        job: &Job,
-        freelancer_profile: &mut Profile,
-        clock: &Clock,
-    ) {
-        let freelancer = *option::borrow(&job.freelancer);
-        assert!(profile_nft::get_owner(freelancer_profile) == freelancer, ENotAuthorized);
-        profile_nft::add_active_job(freelancer_profile, object::id(job), clock);
-    }
-
-    /// Complete job with profile updates (call instead of approve_milestone for final milestone)
-    /// Updates both client and freelancer profiles with job completion stats
-    public fun approve_milestone_with_profiles(
+    /// Cancel job with freelancer assigned (client only, ASSIGNED state)
+    ///
+    /// Validates JobCap, refunds escrow to client, transitions to CANCELLED
+    public fun cancel_job_with_freelancer(
         job: &mut Job,
         cap: &JobCap,
-        milestone_id: u64,
         client_profile: &mut Profile,
         freelancer_profile: &mut Profile,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        // First approve the milestone normally
-        approve_milestone(job, cap, milestone_id, clock, ctx);
+        let timestamp = clock::timestamp_ms(clock);
+        let job_id = object::id(job);
 
-        // If job is now completed, update profiles
-        if (job.state == STATE_COMPLETED) {
-            let job_id = object::id(job);
-            let timestamp = clock::timestamp_ms(clock);
+        // Validation
+        verify_cap(job, cap);
+        assert!(job.state == STATE_ASSIGNED, EInvalidState);
+        assert!(profile_nft::get_owner(client_profile) == job.client, ENotAuthorized);
 
-            // Calculate total paid amount
-            let mut total_paid = 0;
-            let mut i = 0;
-            while (i < job.milestone_count) {
-                let milestone = table::borrow(&job.milestones, i);
-                total_paid = total_paid + milestone.amount;
-                i = i + 1;
-            };
+        // Validate freelancer profile
+        assert!(option::is_some(&job.freelancer), EInvalidState);
+        let freelancer = *option::borrow(&job.freelancer);
+        assert!(profile_nft::get_owner(freelancer_profile) == freelancer, ENotAuthorized);
 
-            // Validate profile ownership
-            assert!(profile_nft::get_owner(client_profile) == job.client, ENotAuthorized);
-            let freelancer = *option::borrow(&job.freelancer);
-            assert!(profile_nft::get_owner(freelancer_profile) == freelancer, ENotAuthorized);
+        let old_state = job.state;
+        job.state = STATE_CANCELLED;
 
-            // Update profiles - record job completion
-            profile_nft::record_job_completion(client_profile, job_id, total_paid, clock);
-            profile_nft::record_job_completion(freelancer_profile, job_id, total_paid, clock);
+        // Refund escrow to client
+        let refund_amount = balance::value(&job.escrow);
+        let refund = coin::take(&mut job.escrow, refund_amount, ctx);
+        transfer::public_transfer(refund, job.client);
 
-            // Remove from active jobs
-            profile_nft::remove_active_job(client_profile, job_id, clock);
-            profile_nft::remove_active_job(freelancer_profile, job_id, clock);
-        }
+        // Remove job from both profiles
+        profile_nft::remove_active_job(client_profile, job_id, clock);
+        profile_nft::remove_active_job(freelancer_profile, job_id, clock);
+
+        // Emit events
+        event::emit(FundsReleased {
+            job_id,
+            recipient: job.client,
+            amount: refund_amount,
+            reason: 2,  // 2 = refund
+            timestamp,
+        });
+
+        event::emit(JobCancelled {
+            job_id,
+            client: job.client,
+            refund_amount,
+            cancelled_state: old_state,
+            timestamp,
+        });
+
+        event::emit(JobStateChanged {
+            job_id: object::id(job),
+            old_state,
+            new_state: STATE_CANCELLED,
+            freelancer: job.freelancer,
+            timestamp,
+        });
     }
+
+    // ======== Internal Helper Functions ========
 
     /// Complete job (internal, called when all milestones approved)
     ///
-    /// Transitions job to COMPLETED, emits completion event
+    /// Transitions job to COMPLETED, emits completion event, updates profiles
     fun complete_job(
         job: &mut Job,
+        client_profile: &mut Profile,
+        freelancer_profile: &mut Profile,
         clock: &Clock,
     ) {
         let timestamp = clock::timestamp_ms(clock);
@@ -663,6 +680,7 @@ module zk_freelance::job_escrow {
         job.state = STATE_COMPLETED;
 
         let freelancer = *option::borrow(&job.freelancer);
+        let job_id = object::id(job);
 
         // Calculate total paid
         let mut total_paid = 0;
@@ -673,9 +691,13 @@ module zk_freelance::job_escrow {
             i = i + 1;
         };
 
+        // Update profiles - record completion
+        profile_nft::record_job_completion(client_profile, job_id, total_paid, clock);
+        profile_nft::record_job_completion(freelancer_profile, job_id, total_paid, clock);
+
         // Emit events
         event::emit(JobCompleted {
-            job_id: object::id(job),
+            job_id,
             client: job.client,
             freelancer,
             total_paid,

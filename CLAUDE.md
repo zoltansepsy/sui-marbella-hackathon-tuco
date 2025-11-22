@@ -166,15 +166,16 @@ public struct JobCap has key, store {
 }
 ```
 
-**Entry Functions** (DEV 1 to implement):
-- `create_job()` - Create job with escrow funding
-- `apply_for_job()` - Freelancer applies
-- `assign_freelancer()` - Client selects freelancer (requires JobCap)
-- `start_job()` - Freelancer begins work
-- `submit_milestone()` - Freelancer submits with proof blob ID
-- `approve_milestone()` - Client approves, releases funds (requires JobCap)
-- `add_milestone()` - Client adds milestone before assignment
-- `cancel_job()` - Client cancels, refunds escrow
+**Entry Functions** (with mandatory profile integration):
+- `create_job(client_profile, ...)` - Create job with escrow funding, adds to client's active jobs
+- `apply_for_job()` - Freelancer applies (no profile required)
+- `assign_freelancer(job, cap, freelancer_addr, freelancer_profile, ...)` - Client selects freelancer, adds to freelancer's active jobs
+- `start_job()` - Freelancer begins work (no profile change)
+- `submit_milestone()` - Freelancer submits with proof blob ID (no profile change)
+- `approve_milestone(job, cap, milestone_id, client_profile, freelancer_profile, ...)` - Client approves, releases funds, updates profiles on job completion
+- `add_milestone()` - Client adds milestone before assignment (no profile change)
+- `cancel_job(job, cap, client_profile, ...)` - Client cancels (OPEN state), refunds escrow, removes from client profile
+- `cancel_job_with_freelancer(job, cap, client_profile, freelancer_profile, ...)` - Client cancels (ASSIGNED state), removes from both profiles
 
 #### 2. Profile NFT Module ([profile_nft.move](move/zk_freelance/sources/profile_nft.move))
 
@@ -239,13 +240,15 @@ public struct ProfileCap has key, store {
 
 #### JobService ([jobService.ts](app/services/jobService.ts))
 
-**Transaction Builders** (DEV 2 to implement):
+**Transaction Builders** (DEV 2 to implement - **IMPORTANT: All require Profile objects**):
 ```typescript
-createJobTransaction(title, descriptionBlobId, budgetAmount, deadline): Transaction
+createJobTransaction(clientProfileId, title, descriptionBlobId, budgetAmount, deadline): Transaction
 applyForJobTransaction(jobId): Transaction
-assignFreelancerTransaction(jobId, jobCapId, freelancerAddress): Transaction
+assignFreelancerTransaction(jobId, jobCapId, freelancerAddress, freelancerProfileId): Transaction
 submitMilestoneTransaction(jobId, milestoneId, proofBlobId): Transaction
-approveMilestoneTransaction(jobId, jobCapId, milestoneId): Transaction
+approveMilestoneTransaction(jobId, jobCapId, milestoneId, clientProfileId, freelancerProfileId): Transaction
+cancelJobTransaction(jobId, jobCapId, clientProfileId): Transaction  // For OPEN state
+cancelJobWithFreelancerTransaction(jobId, jobCapId, clientProfileId, freelancerProfileId): Transaction  // For ASSIGNED state
 ```
 
 **Query Methods**:
@@ -256,19 +259,45 @@ async getJobsByFreelancer(freelancerAddress): Promise<JobData[]>
 async getOpenJobs(): Promise<JobData[]>
 ```
 
-**Usage Pattern**:
+**Usage Pattern with Profile Integration**:
 ```typescript
 const jobService = useMemo(
   () => createJobService(suiClient, jobEscrowPackageId),
   [suiClient, jobEscrowPackageId]
 );
 
-const tx = jobService.createJobTransaction(title, blobId, budget, deadline);
+// Create job - requires client profile
+const tx = jobService.createJobTransaction(
+  clientProfileId,  // Profile object ID
+  title,
+  blobId,
+  budget,
+  deadline
+);
 signAndExecute({ transaction: tx }, {
   onSuccess: async ({ digest }) => {
     const { jobId, jobCapId } = await jobService.waitForTransactionAndGetCreatedObjects(digest);
+    // Profile automatically updated with active job
   }
 });
+
+// Assign freelancer - requires freelancer profile
+const assignTx = jobService.assignFreelancerTransaction(
+  jobId,
+  jobCapId,
+  freelancerAddress,
+  freelancerProfileId  // Freelancer's profile object ID
+);
+
+// Approve milestone - requires BOTH profiles
+const approveTx = jobService.approveMilestoneTransaction(
+  jobId,
+  jobCapId,
+  milestoneId,
+  clientProfileId,      // Client's profile
+  freelancerProfileId   // Freelancer's profile
+);
+// On job completion, both profiles updated automatically
 ```
 
 #### ProfileService ([profileService.ts](app/services/profileService.ts))
