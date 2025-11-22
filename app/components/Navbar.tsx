@@ -13,6 +13,8 @@ import {
   navigationMenuTriggerStyle,
 } from "./ui/navigation-menu";
 import { useView } from "../contexts/ViewContext";
+import { useZkLogin } from "../contexts/ZkLoginContext";
+import { Button } from "./ui/button";
 
 const platformFeatures: { title: string; view: string; description: string }[] = [
   {
@@ -62,6 +64,7 @@ const demoFeatures: { title: string; view: string; description: string }[] = [
 
 export default function Navbar() {
   const { setView } = useView();
+  const { isAuthenticated, walletAddress, login, logout, isLoading } = useZkLogin();
 
   return (
     <NavigationMenu className="max-w-full justify-between p-4 border-b">
@@ -147,9 +150,31 @@ export default function Navbar() {
               </a>
             </NavigationMenuLink>
           </NavigationMenuItem>
+
+          {/* zkLogin Authentication */}
+          {!isLoading && (
+            <NavigationMenuItem>
+              {isAuthenticated ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    {walletAddress?.slice(0, 6)}...{walletAddress?.slice(-4)}
+                  </span>
+                  <Button onClick={logout} variant="outline" size="sm">
+                    Logout (zkLogin)
+                  </Button>
+                </div>
+              ) : (
+                <Button onClick={login} variant="outline" size="sm">
+                  Login with Google (zkLogin)
+                </Button>
+              )}
+            </NavigationMenuItem>
+          )}
+
+          {/* Standard Wallet Connect */}
           <NavigationMenuItem>
-          <ConnectButton />
-        </NavigationMenuItem>
+            <ConnectButton />
+          </NavigationMenuItem>
         </div>
       </NavigationMenuList>
     </NavigationMenu>

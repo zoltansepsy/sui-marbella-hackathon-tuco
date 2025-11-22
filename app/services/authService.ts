@@ -1,8 +1,14 @@
-// src/utils/authService.ts
+// app/services/authService.ts
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 
 import { SUI_CLIENT } from '../lib/suiClient';
+import {
+  GOOGLE_CLIENT_ID,
+  PROVER_URL,
+  REDIRECT_URL,
+  OPENID_PROVIDER_URL,
+} from '../constants';
 
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import {
@@ -13,15 +19,9 @@ import {
   genAddressSeed,
   getZkLoginSignature,
 } from '@mysten/sui/zklogin';
-import { fromB64 } from '@mysten/sui/utils';
 
-// En tu versión del SDK no existe el tipo exportado, así que lo definimos nosotros:
-type SerializedSignature = string;
-
-const PROVER_URL = "https://prover-dev.mystenlabs.com/v1"
-const REDIRECT_URL = "http://localhost:3000"
-const OPENID_PROVIDER_URL = "https://accounts.google.com/.well-known/openid-configuration";
-const CLIENT_ID = "GOOGLE CLIENT ID"as string;  
+// Type for serialized signatures (not exported from SDK)
+type SerializedSignature = string;  
 
 const JWT_KEY = 'sui_jwt_token';
 const JWT_DATA_KEY = 'jwt_data';
@@ -80,7 +80,14 @@ export class AuthService {
   // Para demo/hackathon: salt derivado del email (no es ideal para producción)
   private static salt(): string {
     const email = AuthService.claims()['email'] as string;
-    return AuthService.hashcode(email);
+
+    // Hash estable del email, siempre positivo
+    let h = 0;
+    for (let i = 0; i < email.length; i++) {
+      h = (h * 31 + email.charCodeAt(i)) >>> 0; // fuerza positivo 32 bits
+    }
+
+    return h.toString(); // un entero válido dentro del campo
   }
 
   static walletAddress(): string {
@@ -228,7 +235,7 @@ export class AuthService {
 
     // 3) Construimos URL OAuth
     const params = new URLSearchParams({
-      client_id: CLIENT_ID,
+      client_id: GOOGLE_CLIENT_ID,
       redirect_uri: REDIRECT_URL,
       response_type: 'id_token',
       scope: 'openid email',
