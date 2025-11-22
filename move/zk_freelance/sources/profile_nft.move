@@ -6,7 +6,6 @@
 /// ✓ Profile creation with type enum (Freelancer/Client)
 /// ✓ zkLogin integration with OAuth subject ID and email
 /// ✓ Identity Registry for profile lookup by zklogin_sub
-/// ✓ Profile ownership transfer for zkLogin session changes
 /// ✓ Profile information updates with capability checks
 /// ✓ Dynamic reputation system with weighted average ratings
 /// ✓ Job completion tracking and statistics
@@ -15,14 +14,16 @@
 ///
 /// zkLogin Features:
 /// - Profiles persist across zkLogin sessions using OAuth subject ID
+/// - zkLogin addresses are deterministic and permanent (derived from OAuth sub + iss + aud + salt)
+/// - No ownership transfer needed - users get the same zkLogin address each session
 /// - Email-based profile lookup and verification
-/// - Ownership transfer to new ephemeral addresses
 /// - One profile per zklogin_sub (prevents duplicates)
 ///
 /// TODO for Future:
 /// - Add admin capability for verification function
 /// - Add profile deletion/deactivation
 /// - Add email update function with verification
+/// - Consider account recovery mechanism for edge cases (lost salt, wallet migration)
 
 module zk_freelance::profile_nft {
     use std::string::{Self, String};
@@ -50,9 +51,9 @@ module zk_freelance::profile_nft {
     /// Profile NFT - owned by user
     public struct Profile has key, store {
         id: UID,
-        /// Owner address (current ephemeral address for zkLogin)
+        /// Owner address (persistent zkLogin address derived from OAuth credentials)
         owner: address,
-        /// zkLogin OAuth subject ID (stable identifier across sessions)
+        /// zkLogin OAuth subject ID (stable OAuth identifier - never changes)
         zklogin_sub: String,
         /// User's email address
         email: String,
@@ -129,13 +130,6 @@ module zk_freelance::profile_nft {
         profile_id: ID,
         job_id: ID,
         amount: u64,
-        timestamp: u64,
-    }
-
-    public struct ProfileOwnershipTransferred has copy, drop {
-        profile_id: ID,
-        old_owner: address,
-        new_owner: address,
         timestamp: u64,
     }
 
@@ -328,32 +322,6 @@ module zk_freelance::profile_nft {
                 timestamp,
             });
         };
-    }
-
-    /// Transfer profile ownership to new address (for zkLogin session changes)
-    ///
-    /// Allows user to transfer profile to their new ephemeral address
-    public fun transfer_profile_ownership(
-        profile: &mut Profile,
-        cap: &ProfileCap,
-        new_owner: address,
-        clock: &Clock,
-        ctx: &mut TxContext
-    ) {
-        // Verify cap ownership
-        verify_cap(profile, cap);
-
-        let old_owner = profile.owner;
-        profile.owner = new_owner;
-        profile.updated_at = clock::timestamp_ms(clock);
-
-        // Emit event
-        event::emit(ProfileOwnershipTransferred {
-            profile_id: object::id(profile),
-            old_owner,
-            new_owner,
-            timestamp: profile.updated_at,
-        });
     }
 
     /// Get profile ID by zkLogin subject (returns none if not found)
