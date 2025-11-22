@@ -21,6 +21,7 @@ import {
   getJobFields,
   vectorU8ToString,
 } from "./types";
+import { createJobEventIndexer } from "./jobEventIndexer";
 
 export class JobService {
   private suiClient: SuiClient;
@@ -36,11 +37,7 @@ export class JobService {
   /**
    * Create a new job with escrow funding
    *
-   * TODO: Implement
-   * - Split coins if needed for exact budget amount
-   * - Build moveCall with create_job target
-   * - Pass title, description blob ID, budget coin, deadline, clock
-   *
+   * @param clientProfileId Client's Profile object ID
    * @param title Job title
    * @param descriptionBlobId Walrus blob ID for job description
    * @param budgetAmount Budget in MIST
@@ -48,6 +45,7 @@ export class JobService {
    * @returns Transaction to sign and execute
    */
   createJobTransaction(
+    clientProfileId: string,
     title: string,
     descriptionBlobId: string,
     budgetAmount: number,
@@ -55,21 +53,23 @@ export class JobService {
   ): Transaction {
     const tx = new Transaction();
 
-    // TODO: Implement
-    // 1. Split coins for exact budget
-    // const [coin] = tx.splitCoins(tx.gas, [budgetAmount]);
-    //
-    // 2. Get clock object
-    // tx.moveCall({
-    //   arguments: [
-    //     tx.pure.string(title), // or tx.pure.vector("u8", ...)
-    //     tx.pure.vector("u8", Array.from(new TextEncoder().encode(descriptionBlobId))),
-    //     coin,
-    //     tx.pure.u64(deadline),
-    //     tx.object("0x6"), // Clock object
-    //   ],
-    //   target: `${this.packageId}::job_escrow::create_job`,
-    // });
+    // Split coins for exact budget
+    const [coin] = tx.splitCoins(tx.gas, [budgetAmount]);
+
+    tx.moveCall({
+      arguments: [
+        tx.object(clientProfileId), // Client's Profile
+        tx.pure.vector("u8", Array.from(new TextEncoder().encode(title))),
+        tx.pure.vector(
+          "u8",
+          Array.from(new TextEncoder().encode(descriptionBlobId))
+        ),
+        coin,
+        tx.pure.u64(deadline),
+        tx.object("0x6"), // Clock object
+      ],
+      target: `${this.packageId}::job_escrow::create_job`,
+    });
 
     return tx;
   }
@@ -77,22 +77,19 @@ export class JobService {
   /**
    * Apply for a job as freelancer
    *
-   * TODO: Implement
-   *
    * @param jobId Job object ID
    * @returns Transaction to sign and execute
    */
   applyForJobTransaction(jobId: string): Transaction {
     const tx = new Transaction();
 
-    // TODO: Implement
-    // tx.moveCall({
-    //   arguments: [
-    //     tx.object(jobId),
-    //     tx.object("0x6"), // Clock
-    //   ],
-    //   target: `${this.packageId}::job_escrow::apply_for_job`,
-    // });
+    tx.moveCall({
+      arguments: [
+        tx.object(jobId),
+        tx.object("0x6"), // Clock
+      ],
+      target: `${this.packageId}::job_escrow::apply_for_job`,
+    });
 
     return tx;
   }
@@ -100,30 +97,30 @@ export class JobService {
   /**
    * Assign freelancer to job (client only)
    *
-   * TODO: Implement
-   *
    * @param jobId Job object ID
    * @param jobCapId JobCap object ID
    * @param freelancerAddress Freelancer's address
+   * @param freelancerProfileId Freelancer's Profile object ID
    * @returns Transaction to sign and execute
    */
   assignFreelancerTransaction(
     jobId: string,
     jobCapId: string,
-    freelancerAddress: string
+    freelancerAddress: string,
+    freelancerProfileId: string
   ): Transaction {
     const tx = new Transaction();
 
-    // TODO: Implement
-    // tx.moveCall({
-    //   arguments: [
-    //     tx.object(jobId),
-    //     tx.object(jobCapId),
-    //     tx.pure.address(freelancerAddress),
-    //     tx.object("0x6"), // Clock
-    //   ],
-    //   target: `${this.packageId}::job_escrow::assign_freelancer`,
-    // });
+    tx.moveCall({
+      arguments: [
+        tx.object(jobId),
+        tx.object(jobCapId),
+        tx.pure.address(freelancerAddress),
+        tx.object(freelancerProfileId), // Freelancer's Profile
+        tx.object("0x6"), // Clock
+      ],
+      target: `${this.packageId}::job_escrow::assign_freelancer`,
+    });
 
     return tx;
   }
@@ -131,30 +128,22 @@ export class JobService {
   /**
    * Start work on job (freelancer only)
    *
-   * TODO: Implement
-   *
    * @param jobId Job object ID
    * @returns Transaction to sign and execute
    */
   startJobTransaction(jobId: string): Transaction {
     const tx = new Transaction();
 
-    // TODO: Implement
-    // tx.moveCall({
-    //   arguments: [
-    //     tx.object(jobId),
-    //     tx.object("0x6"), // Clock
-    //   ],
-    //   target: `${this.packageId}::job_escrow::start_job`,
-    // });
+    tx.moveCall({
+      arguments: [tx.object(jobId), tx.object("0x6")],
+      target: `${this.packageId}::job_escrow::start_job`,
+    });
 
     return tx;
   }
 
   /**
    * Submit milestone completion (freelancer only)
-   *
-   * TODO: Implement
    *
    * @param jobId Job object ID
    * @param milestoneId Milestone number
@@ -168,16 +157,18 @@ export class JobService {
   ): Transaction {
     const tx = new Transaction();
 
-    // TODO: Implement
-    // tx.moveCall({
-    //   arguments: [
-    //     tx.object(jobId),
-    //     tx.pure.u64(milestoneId),
-    //     tx.pure.vector("u8", Array.from(new TextEncoder().encode(proofBlobId))),
-    //     tx.object("0x6"), // Clock
-    //   ],
-    //   target: `${this.packageId}::job_escrow::submit_milestone`,
-    // });
+    tx.moveCall({
+      arguments: [
+        tx.object(jobId),
+        tx.pure.u64(milestoneId),
+        tx.pure.vector(
+          "u8",
+          Array.from(new TextEncoder().encode(proofBlobId))
+        ),
+        tx.object("0x6"), // Clock
+      ],
+      target: `${this.packageId}::job_escrow::submit_milestone`,
+    });
 
     return tx;
   }
@@ -185,38 +176,39 @@ export class JobService {
   /**
    * Approve milestone and release funds (client only)
    *
-   * TODO: Implement
-   *
    * @param jobId Job object ID
    * @param jobCapId JobCap object ID
    * @param milestoneId Milestone number
+   * @param clientProfileId Client's Profile object ID
+   * @param freelancerProfileId Freelancer's Profile object ID
    * @returns Transaction to sign and execute
    */
   approveMilestoneTransaction(
     jobId: string,
     jobCapId: string,
-    milestoneId: number
+    milestoneId: number,
+    clientProfileId: string,
+    freelancerProfileId: string
   ): Transaction {
     const tx = new Transaction();
 
-    // TODO: Implement
-    // tx.moveCall({
-    //   arguments: [
-    //     tx.object(jobId),
-    //     tx.object(jobCapId),
-    //     tx.pure.u64(milestoneId),
-    //     tx.object("0x6"), // Clock
-    //   ],
-    //   target: `${this.packageId}::job_escrow::approve_milestone`,
-    // });
+    tx.moveCall({
+      arguments: [
+        tx.object(jobId),
+        tx.object(jobCapId),
+        tx.pure.u64(milestoneId),
+        tx.object(clientProfileId), // Client's Profile
+        tx.object(freelancerProfileId), // Freelancer's Profile
+        tx.object("0x6"), // Clock
+      ],
+      target: `${this.packageId}::job_escrow::approve_milestone`,
+    });
 
     return tx;
   }
 
   /**
    * Add milestone to job (client only, before assignment)
-   *
-   * TODO: Implement
    *
    * @param jobId Job object ID
    * @param jobCapId JobCap object ID
@@ -232,41 +224,74 @@ export class JobService {
   ): Transaction {
     const tx = new Transaction();
 
-    // TODO: Implement
-    // tx.moveCall({
-    //   arguments: [
-    //     tx.object(jobId),
-    //     tx.object(jobCapId),
-    //     tx.pure.vector("u8", Array.from(new TextEncoder().encode(description))),
-    //     tx.pure.u64(amount),
-    //   ],
-    //   target: `${this.packageId}::job_escrow::add_milestone`,
-    // });
+    tx.moveCall({
+      arguments: [
+        tx.object(jobId),
+        tx.object(jobCapId),
+        tx.pure.vector("u8", Array.from(new TextEncoder().encode(description))),
+        tx.pure.u64(amount),
+      ],
+      target: `${this.packageId}::job_escrow::add_milestone`,
+    });
 
     return tx;
   }
 
   /**
-   * Cancel job and refund (client only)
-   *
-   * TODO: Implement
+   * Cancel job and refund (client only, OPEN state - no freelancer assigned)
    *
    * @param jobId Job object ID
    * @param jobCapId JobCap object ID
+   * @param clientProfileId Client's Profile object ID
    * @returns Transaction to sign and execute
    */
-  cancelJobTransaction(jobId: string, jobCapId: string): Transaction {
+  cancelJobTransaction(
+    jobId: string,
+    jobCapId: string,
+    clientProfileId: string
+  ): Transaction {
     const tx = new Transaction();
 
-    // TODO: Implement
-    // tx.moveCall({
-    //   arguments: [
-    //     tx.object(jobId),
-    //     tx.object(jobCapId),
-    //     tx.object("0x6"), // Clock
-    //   ],
-    //   target: `${this.packageId}::job_escrow::cancel_job`,
-    // });
+    tx.moveCall({
+      arguments: [
+        tx.object(jobId),
+        tx.object(jobCapId),
+        tx.object(clientProfileId), // Client's Profile
+        tx.object("0x6"), // Clock
+      ],
+      target: `${this.packageId}::job_escrow::cancel_job`,
+    });
+
+    return tx;
+  }
+
+  /**
+   * Cancel job with freelancer assigned (client only, ASSIGNED state)
+   *
+   * @param jobId Job object ID
+   * @param jobCapId JobCap object ID
+   * @param clientProfileId Client's Profile object ID
+   * @param freelancerProfileId Freelancer's Profile object ID
+   * @returns Transaction to sign and execute
+   */
+  cancelJobWithFreelancerTransaction(
+    jobId: string,
+    jobCapId: string,
+    clientProfileId: string,
+    freelancerProfileId: string
+  ): Transaction {
+    const tx = new Transaction();
+
+    tx.moveCall({
+      arguments: [
+        tx.object(jobId),
+        tx.object(jobCapId),
+        tx.object(clientProfileId), // Client's Profile
+        tx.object(freelancerProfileId), // Freelancer's Profile
+        tx.object("0x6"), // Clock
+      ],
+      target: `${this.packageId}::job_escrow::cancel_job_with_freelancer`,
+    });
 
     return tx;
   }
@@ -328,36 +353,37 @@ export class JobService {
   }
 
   /**
-   * Get all jobs posted by a client (via JobCap ownership)
-   *
-   * TODO: Implement
-   * - Query owned objects with JobCap type filter
-   * - Extract job_id from each JobCap
-   * - Fetch full job data for each
+   * Get all jobs posted by a client
+   * Uses event-based indexing to discover jobs
    *
    * @param clientAddress Client's address
    * @returns Array of job data
    */
   async getJobsByClient(clientAddress: string): Promise<JobData[]> {
     try {
-      // TODO: Implement
-      // const objects = await this.suiClient.getOwnedObjects({
-      //   owner: clientAddress,
-      //   options: { showContent: true, showType: true },
-      //   filter: { StructType: `${this.packageId}::job_escrow::JobCap` },
-      // });
+      // Use event indexer to query jobs by client
+      const indexer = createJobEventIndexer(this.suiClient, this.packageId);
+      const jobEvents = await indexer.queryJobsByClient(clientAddress);
 
-      // const jobs: JobData[] = [];
-      // for (const obj of objects.data) {
-      //   if (obj.data?.content?.dataType === "moveObject") {
-      //     const fields = obj.data.content.fields as any;
-      //     const jobId = fields.job_id;
-      //     const job = await this.getJob(jobId);
-      //     if (job) jobs.push(job);
-      //   }
-      // }
+      // Convert event data to full JobData
+      // For now, use event data directly. Optionally fetch full Job objects for current state.
+      const jobs: JobData[] = jobEvents.map((event) => ({
+        objectId: event.jobId,
+        client: event.client,
+        freelancer: event.freelancer || undefined,
+        title: event.title,
+        descriptionBlobId: event.descriptionBlobId,
+        budget: event.budget,
+        state: event.state,
+        milestones: [], // TODO: Fetch from Job object if needed
+        milestoneCount: event.milestoneCount,
+        applicants: [],
+        createdAt: event.timestamp,
+        deadline: event.deadline,
+        deliverableBlobIds: [],
+      }));
 
-      return [];
+      return jobs;
     } catch (error) {
       console.error("Error fetching client jobs:", error);
       return [];
@@ -366,21 +392,27 @@ export class JobService {
 
   /**
    * Get all jobs assigned to a freelancer
-   *
-   * TODO: Implement
-   * - Use dynamic field queries or event indexing
-   * - Filter jobs where freelancer field matches address
+   * Uses event-based indexing via FreelancerAssigned events
    *
    * @param freelancerAddress Freelancer's address
    * @returns Array of job data
    */
   async getJobsByFreelancer(freelancerAddress: string): Promise<JobData[]> {
     try {
-      // TODO: Implement
-      // This requires querying all Job objects and filtering
-      // or using an indexer/event-based approach
+      // Use event indexer to get job IDs assigned to this freelancer
+      const indexer = createJobEventIndexer(this.suiClient, this.packageId);
+      const jobIds = await indexer.queryJobsByFreelancer(freelancerAddress);
 
-      return [];
+      // Fetch full job details for each job ID
+      const jobs: JobData[] = [];
+      for (const jobId of jobIds) {
+        const job = await this.getJob(jobId);
+        if (job) {
+          jobs.push(job);
+        }
+      }
+
+      return jobs;
     } catch (error) {
       console.error("Error fetching freelancer jobs:", error);
       return [];
@@ -389,20 +421,35 @@ export class JobService {
 
   /**
    * Get all open jobs (for marketplace)
+   * Uses event-based indexing to discover jobs and filter by state
    *
-   * TODO: Implement
-   * - Query events or use indexer
-   * - Filter by state = OPEN
-   *
+   * @param limit Maximum number of jobs to return (default: 50)
    * @returns Array of open jobs
    */
-  async getOpenJobs(): Promise<JobData[]> {
+  async getOpenJobs(limit: number = 50): Promise<JobData[]> {
     try {
-      // TODO: Implement
-      // This requires event-based indexing or full scan
-      // Consider using MoveEventQuery for JobCreated events
+      // Use event indexer to query open jobs
+      const indexer = createJobEventIndexer(this.suiClient, this.packageId);
+      const jobEvents = await indexer.queryOpenJobs(limit);
 
-      return [];
+      // Convert event data to full JobData
+      const jobs: JobData[] = jobEvents.map((event) => ({
+        objectId: event.jobId,
+        client: event.client,
+        freelancer: event.freelancer || undefined,
+        title: event.title,
+        descriptionBlobId: event.descriptionBlobId,
+        budget: event.budget,
+        state: event.state,
+        milestones: [],
+        milestoneCount: event.milestoneCount,
+        applicants: [],
+        createdAt: event.timestamp,
+        deadline: event.deadline,
+        deliverableBlobIds: [],
+      }));
+
+      return jobs;
     } catch (error) {
       console.error("Error fetching open jobs:", error);
       return [];
@@ -498,20 +545,46 @@ export class JobService {
         options: { showEffects: true, showObjectChanges: true },
       });
 
-      // TODO: Parse objectChanges to find Job and JobCap
-      // const jobObject = result.objectChanges?.find(
-      //   (change) =>
-      //     change.type === "created" &&
-      //     change.objectType.includes("::job_escrow::Job")
-      // );
+      if (!result.objectChanges) {
+        return null;
+      }
 
-      // const capObject = result.objectChanges?.find(
-      //   (change) =>
-      //     change.type === "created" &&
-      //     change.objectType.includes("::job_escrow::JobCap")
-      // );
+      // Find Job object
+      const jobObject = result.objectChanges.find(
+        (change) =>
+          change.type === "created" &&
+          "objectType" in change &&
+          change.objectType.includes("::job_escrow::Job")
+      );
 
-      return null;
+      // Find JobCap object
+      const capObject = result.objectChanges.find(
+        (change) =>
+          change.type === "created" &&
+          "objectType" in change &&
+          change.objectType.includes("::job_escrow::JobCap")
+      );
+
+      if (
+        !jobObject ||
+        jobObject.type !== "created" ||
+        !("objectId" in jobObject)
+      ) {
+        return null;
+      }
+
+      if (
+        !capObject ||
+        capObject.type !== "created" ||
+        !("objectId" in capObject)
+      ) {
+        return null;
+      }
+
+      return {
+        jobId: jobObject.objectId,
+        jobCapId: capObject.objectId,
+      };
     } catch (error) {
       console.error("Error waiting for transaction:", error);
       return null;

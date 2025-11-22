@@ -46,27 +46,37 @@ export class ProfileService {
    */
   createProfileTransaction(
     profileType: ProfileType,
+    zkloginSub: string,
+    email: string,
     username: string,
     realName: string,
     bio: string,
     tags: string[],
-    avatarUrl: string
+    avatarUrl: string,
+    registryId: string
   ): Transaction {
     const tx = new Transaction();
 
-    // TODO: Implement
-    // tx.moveCall({
-    //   arguments: [
-    //     tx.pure.u8(profileType),
-    //     tx.pure.vector("u8", Array.from(new TextEncoder().encode(username))),
-    //     tx.pure.vector("u8", Array.from(new TextEncoder().encode(realName))),
-    //     tx.pure.vector("u8", Array.from(new TextEncoder().encode(bio))),
-    //     tx.pure.vector("vector<u8>", tags.map(t => Array.from(new TextEncoder().encode(t)))),
-    //     tx.pure.vector("u8", Array.from(new TextEncoder().encode(avatarUrl))),
-    //     tx.object("0x6"), // Clock
-    //   ],
-    //   target: `${this.packageId}::profile_nft::create_profile`,
-    // });
+    // Encode tags as vector<vector<u8>>
+    const encodedTags = tags.map((tag) =>
+      Array.from(new TextEncoder().encode(tag))
+    );
+
+    tx.moveCall({
+      arguments: [
+        tx.object(registryId), // IdentityRegistry shared object
+        tx.pure.u8(profileType),
+        tx.pure.vector("u8", Array.from(new TextEncoder().encode(zkloginSub))),
+        tx.pure.vector("u8", Array.from(new TextEncoder().encode(email))),
+        tx.pure.vector("u8", Array.from(new TextEncoder().encode(username))),
+        tx.pure.vector("u8", Array.from(new TextEncoder().encode(realName))),
+        tx.pure.vector("u8", Array.from(new TextEncoder().encode(bio))),
+        tx.pure(encodedTags, "vector<vector<u8>>"),
+        tx.pure.vector("u8", Array.from(new TextEncoder().encode(avatarUrl))),
+        tx.object("0x6"), // Clock
+      ],
+      target: `${this.packageId}::profile_nft::create_profile`,
+    });
 
     return tx;
   }
@@ -95,18 +105,41 @@ export class ProfileService {
   ): Transaction {
     const tx = new Transaction();
 
-    // TODO: Implement
-    // tx.moveCall({
-    //   arguments: [
-    //     tx.object(profileId),
-    //     tx.object(profileCapId),
-    //     // Pass Option<vector<u8>> for each field
-    //     updates.username ? tx.pure.option("vector<u8>", ...) : tx.pure.option("vector<u8>", null),
-    //     // ... similar for other fields
-    //     tx.object("0x6"), // Clock
-    //   ],
-    //   target: `${this.packageId}::profile_nft::update_profile_info`,
-    // });
+    // Helper to create Option<vector<u8>> for string fields
+    const encodeOptionalString = (value: string | undefined) => {
+      if (value !== undefined) {
+        return tx.pure.option(
+          "vector<u8>",
+          Array.from(new TextEncoder().encode(value))
+        );
+      }
+      return tx.pure.option("vector<u8>", null);
+    };
+
+    // Helper to create Option<vector<vector<u8>>> for tags
+    const encodeOptionalTags = (tags: string[] | undefined) => {
+      if (tags !== undefined) {
+        const encodedTags = tags.map((tag) =>
+          Array.from(new TextEncoder().encode(tag))
+        );
+        return tx.pure.option("vector<vector<u8>>", encodedTags);
+      }
+      return tx.pure.option("vector<vector<u8>>", null);
+    };
+
+    tx.moveCall({
+      arguments: [
+        tx.object(profileId),
+        tx.object(profileCapId),
+        encodeOptionalString(updates.username),
+        encodeOptionalString(updates.realName),
+        encodeOptionalString(updates.bio),
+        encodeOptionalTags(updates.tags),
+        encodeOptionalString(updates.avatarUrl),
+        tx.object("0x6"), // Clock
+      ],
+      target: `${this.packageId}::profile_nft::update_profile_info`,
+    });
 
     return tx;
   }
@@ -312,9 +345,46 @@ export class ProfileService {
         options: { showEffects: true, showObjectChanges: true },
       });
 
-      // TODO: Parse objectChanges to find Profile and ProfileCap
+      if (!result.objectChanges) {
+        return null;
+      }
 
-      return null;
+      // Find Profile object
+      const profileObject = result.objectChanges.find(
+        (change) =>
+          change.type === "created" &&
+          "objectType" in change &&
+          change.objectType.includes("::profile_nft::Profile")
+      );
+
+      // Find ProfileCap object
+      const capObject = result.objectChanges.find(
+        (change) =>
+          change.type === "created" &&
+          "objectType" in change &&
+          change.objectType.includes("::profile_nft::ProfileCap")
+      );
+
+      if (
+        !profileObject ||
+        profileObject.type !== "created" ||
+        !("objectId" in profileObject)
+      ) {
+        return null;
+      }
+
+      if (
+        !capObject ||
+        capObject.type !== "created" ||
+        !("objectId" in capObject)
+      ) {
+        return null;
+      }
+
+      return {
+        profileId: profileObject.objectId,
+        profileCapId: capObject.objectId,
+      };
     } catch (error) {
       console.error("Error waiting for transaction:", error);
       return null;

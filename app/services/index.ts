@@ -27,6 +27,7 @@ export {
 
 // Freelance platform services
 export { JobService, createJobService } from "./jobService";
+export { JobEventIndexer, createJobEventIndexer } from "./jobEventIndexer";
 export { ProfileService, createProfileService } from "./profileService";
 export { ReputationService, createReputationService } from "./reputationService";
 
@@ -47,3 +48,10 @@ export type {
   RatingData,
   BadgeData,
 } from "./types";
+export type {
+  JobEventData,
+  JobEventQueryResult,
+  JobCreatedEvent,
+  JobStateChangedEvent,
+  FreelancerAssignedEvent,
+} from "./jobEventIndexer";
