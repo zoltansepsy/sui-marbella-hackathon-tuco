@@ -14,12 +14,11 @@
 import { useSuiClient, useCurrentAccount } from "@mysten/dapp-kit";
 import { useNetworkVariable } from "../networkConfig";
 import { useMemo } from "react";
-import { createProfileService, type ProfileData } from "../services";
+import { useQuery } from "@tanstack/react-query";
+import { createProfileService } from "../services";
 
 /**
  * Hook to fetch profile by ID
- *
- * TODO: Implement with useSuiClientQuery or react-query
  *
  * @param profileId Profile object ID
  * @returns Profile data, loading state, error, and refetch function
@@ -33,22 +32,24 @@ export function useProfile(profileId: string | undefined) {
     [suiClient, profilePackageId]
   );
 
-  // TODO: Implement with useSuiClientQuery or useQuery
+  const { data, isPending, error, refetch } = useQuery({
+    queryKey: ["profile", profileId],
+    queryFn: () => profileService.getProfile(profileId!),
+    enabled: !!profileId,
+    staleTime: 30000, // Consider data fresh for 30 seconds
+    refetchInterval: 60000, // Refetch every 60 seconds
+  });
 
   return {
-    profile: null as ProfileData | null,
-    isPending: false,
-    error: null as Error | null,
-    refetch: async () => {},
+    profile: data || null,
+    isPending,
+    error: error as Error | null,
+    refetch,
   };
 }
 
 /**
  * Hook to fetch current user's profile
- *
- * TODO: Implement
- * - Check if user has a profile
- * - Return hasProfile flag for profile creation flow
  *
  * @returns Current user's profile, hasProfile flag, loading state
  */
@@ -62,21 +63,25 @@ export function useCurrentProfile() {
     [suiClient, profilePackageId]
   );
 
-  // TODO: Implement
+  const { data, isPending, error, refetch } = useQuery({
+    queryKey: ["profile", "current", currentAccount?.address],
+    queryFn: () => profileService.getProfileByOwner(currentAccount!.address),
+    enabled: !!currentAccount?.address,
+    staleTime: 30000,
+    refetchInterval: 60000,
+  });
 
   return {
-    profile: null as ProfileData | null,
-    hasProfile: false,
-    isPending: false,
-    error: null as Error | null,
-    refetch: async () => {},
+    profile: data || null,
+    hasProfile: !!data,
+    isPending,
+    error: error as Error | null,
+    refetch,
   };
 }
 
 /**
  * Hook to fetch profile by owner address
- *
- * TODO: Implement
  *
  * @param ownerAddress Owner's address
  * @returns Profile data, loading state, error
@@ -90,20 +95,24 @@ export function useProfileByOwner(ownerAddress: string | undefined) {
     [suiClient, profilePackageId]
   );
 
-  // TODO: Implement
+  const { data, isPending, error, refetch } = useQuery({
+    queryKey: ["profile", "owner", ownerAddress],
+    queryFn: () => profileService.getProfileByOwner(ownerAddress!),
+    enabled: !!ownerAddress,
+    staleTime: 30000,
+    refetchInterval: 60000,
+  });
 
   return {
-    profile: null as ProfileData | null,
-    isPending: false,
-    error: null as Error | null,
-    refetch: async () => {},
+    profile: data || null,
+    isPending,
+    error: error as Error | null,
+    refetch,
   };
 }
 
 /**
  * Hook to fetch top-rated freelancers
- *
- * TODO: Implement
  *
  * @param limit Number of profiles to fetch
  * @returns Array of top profiles, loading state, error
@@ -117,12 +126,17 @@ export function useTopFreelancers(limit: number = 10) {
     [suiClient, profilePackageId]
   );
 
-  // TODO: Implement
+  const { data, isPending, error, refetch } = useQuery({
+    queryKey: ["profiles", "top", limit],
+    queryFn: () => profileService.getTopFreelancers(limit),
+    staleTime: 60000, // Consider data fresh for 60 seconds
+    refetchInterval: 120000, // Refetch every 2 minutes
+  });
 
   return {
-    profiles: [] as ProfileData[],
-    isPending: false,
-    error: null as Error | null,
-    refetch: async () => {},
+    profiles: data || [],
+    isPending,
+    error: error as Error | null,
+    refetch,
   };
 }
