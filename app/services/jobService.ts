@@ -21,6 +21,7 @@ import {
   getJobFields,
   vectorU8ToString,
 } from "./types";
+import { createJobEventIndexer } from "./jobEventIndexer";
 
 export class JobService {
   private suiClient: SuiClient;
@@ -328,36 +329,37 @@ export class JobService {
   }
 
   /**
-   * Get all jobs posted by a client (via JobCap ownership)
-   *
-   * TODO: Implement
-   * - Query owned objects with JobCap type filter
-   * - Extract job_id from each JobCap
-   * - Fetch full job data for each
+   * Get all jobs posted by a client
+   * Uses event-based indexing to discover jobs
    *
    * @param clientAddress Client's address
    * @returns Array of job data
    */
   async getJobsByClient(clientAddress: string): Promise<JobData[]> {
     try {
-      // TODO: Implement
-      // const objects = await this.suiClient.getOwnedObjects({
-      //   owner: clientAddress,
-      //   options: { showContent: true, showType: true },
-      //   filter: { StructType: `${this.packageId}::job_escrow::JobCap` },
-      // });
+      // Use event indexer to query jobs by client
+      const indexer = createJobEventIndexer(this.suiClient, this.packageId);
+      const jobEvents = await indexer.queryJobsByClient(clientAddress);
 
-      // const jobs: JobData[] = [];
-      // for (const obj of objects.data) {
-      //   if (obj.data?.content?.dataType === "moveObject") {
-      //     const fields = obj.data.content.fields as any;
-      //     const jobId = fields.job_id;
-      //     const job = await this.getJob(jobId);
-      //     if (job) jobs.push(job);
-      //   }
-      // }
+      // Convert event data to full JobData
+      // For now, use event data directly. Optionally fetch full Job objects for current state.
+      const jobs: JobData[] = jobEvents.map((event) => ({
+        objectId: event.jobId,
+        client: event.client,
+        freelancer: event.freelancer || undefined,
+        title: event.title,
+        descriptionBlobId: event.descriptionBlobId,
+        budget: event.budget,
+        state: event.state,
+        milestones: [], // TODO: Fetch from Job object if needed
+        milestoneCount: event.milestoneCount,
+        applicants: [],
+        createdAt: event.timestamp,
+        deadline: event.deadline,
+        deliverableBlobIds: [],
+      }));
 
-      return [];
+      return jobs;
     } catch (error) {
       console.error("Error fetching client jobs:", error);
       return [];
@@ -366,21 +368,27 @@ export class JobService {
 
   /**
    * Get all jobs assigned to a freelancer
-   *
-   * TODO: Implement
-   * - Use dynamic field queries or event indexing
-   * - Filter jobs where freelancer field matches address
+   * Uses event-based indexing via FreelancerAssigned events
    *
    * @param freelancerAddress Freelancer's address
    * @returns Array of job data
    */
   async getJobsByFreelancer(freelancerAddress: string): Promise<JobData[]> {
     try {
-      // TODO: Implement
-      // This requires querying all Job objects and filtering
-      // or using an indexer/event-based approach
+      // Use event indexer to get job IDs assigned to this freelancer
+      const indexer = createJobEventIndexer(this.suiClient, this.packageId);
+      const jobIds = await indexer.queryJobsByFreelancer(freelancerAddress);
 
-      return [];
+      // Fetch full job details for each job ID
+      const jobs: JobData[] = [];
+      for (const jobId of jobIds) {
+        const job = await this.getJob(jobId);
+        if (job) {
+          jobs.push(job);
+        }
+      }
+
+      return jobs;
     } catch (error) {
       console.error("Error fetching freelancer jobs:", error);
       return [];
@@ -389,20 +397,35 @@ export class JobService {
 
   /**
    * Get all open jobs (for marketplace)
+   * Uses event-based indexing to discover jobs and filter by state
    *
-   * TODO: Implement
-   * - Query events or use indexer
-   * - Filter by state = OPEN
-   *
+   * @param limit Maximum number of jobs to return (default: 50)
    * @returns Array of open jobs
    */
-  async getOpenJobs(): Promise<JobData[]> {
+  async getOpenJobs(limit: number = 50): Promise<JobData[]> {
     try {
-      // TODO: Implement
-      // This requires event-based indexing or full scan
-      // Consider using MoveEventQuery for JobCreated events
+      // Use event indexer to query open jobs
+      const indexer = createJobEventIndexer(this.suiClient, this.packageId);
+      const jobEvents = await indexer.queryOpenJobs(limit);
 
-      return [];
+      // Convert event data to full JobData
+      const jobs: JobData[] = jobEvents.map((event) => ({
+        objectId: event.jobId,
+        client: event.client,
+        freelancer: event.freelancer || undefined,
+        title: event.title,
+        descriptionBlobId: event.descriptionBlobId,
+        budget: event.budget,
+        state: event.state,
+        milestones: [],
+        milestoneCount: event.milestoneCount,
+        applicants: [],
+        createdAt: event.timestamp,
+        deadline: event.deadline,
+        deliverableBlobIds: [],
+      }));
+
+      return jobs;
     } catch (error) {
       console.error("Error fetching open jobs:", error);
       return [];

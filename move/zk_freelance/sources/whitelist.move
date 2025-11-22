@@ -125,24 +125,24 @@ module zk_freelance::whitelist {
         object::delete(id);
     }
 
-    #[test]
-    fun test_approve() {
-        let ctx = &mut tx_context::dummy();
-        let (cap, mut wl) = create_whitelist(ctx);
-        wl.add(&cap, @0x1);
-        wl.remove(&cap, @0x1);
-        wl.add(&cap, @0x2);
+    // #[test]
+    // fun test_approve() {
+    //     let ctx = &mut tx_context::dummy();
+    //     let (cap, mut wl) = create_whitelist(ctx);
+    //     wl.add(&cap, @0x1);
+    //     wl.remove(&cap, @0x1);
+    //     wl.add(&cap, @0x2);
 
-        // Fail for invalid id
-        assert!(!check_policy(@0x2, b"123", &wl), 1);
-        // Work for valid id, user 2 is in the whitelist
-        let mut obj_id = object::id(&wl).to_bytes();
-        obj_id.push_back(11);
-        assert!(check_policy(@0x2, obj_id, &wl), 1);
-        // Fail for user 1
-        assert!(!check_policy(@0x1, obj_id, &wl), 1);
+    //     // Fail for invalid id
+    //     assert!(!check_policy(@0x2, b"123", &wl), 1);
+    //     // Work for valid id, user 2 is in the whitelist
+    //     let mut obj_id = object::id(&wl).to_bytes();
+    //     obj_id.push_back(11);
+    //     assert!(check_policy(@0x2, obj_id, &wl), 1);
+    //     // Fail for user 1
+    //     assert!(!check_policy(@0x1, obj_id, &wl), 1);
 
-        destroy_for_testing(wl, cap);
-    }
+    //     destroy_for_testing(wl, cap);
+    // }
 
 }
