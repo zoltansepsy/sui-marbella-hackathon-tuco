@@ -9,6 +9,7 @@ import { WalrusUpload } from "./WalrusUpload";
 import { SealWhitelist } from "./SealWhitelist";
 import { Resources } from "./Resources";
 import { MyJobsView } from "./components/job/MyJobsView";
+import { JobMarketplaceView } from "./JobMarketplaceView";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useView } from "./contexts/ViewContext";
@@ -170,12 +171,7 @@ export default function Home() {
 
                   {/* Freelance Platform Views */}
                   {view === "marketplace" && (
-                    <div className="text-center py-12">
-                      <h2 className="text-2xl font-bold mb-4">Job Marketplace</h2>
-                      <p className="text-muted-foreground mb-4">Browse open freelance jobs (Coming Soon)</p>
-                      <p className="text-sm text-muted-foreground">DEV 3: Implement JobMarketplaceView component</p>
-                      <Button onClick={() => setView("home")} className="mt-4">Back to Home</Button>
-                    </div>
+                    <JobMarketplaceView onBack={() => setView("home")} />
                   )}
 
                   {view === "myJobs" && (
@@ -251,7 +247,7 @@ export default function Home() {
             )}
           </CardContent>
         </Card>
-      </div>
+        </div>
     </div>
   );
 }
