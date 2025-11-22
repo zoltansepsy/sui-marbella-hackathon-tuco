@@ -195,13 +195,8 @@ module zk_freelance::job_escrow {
     /// Create a new job with escrow funding
     /// Returns JobCap to the client
     ///
-    /// TODO: Implement full logic
-    /// - Validate budget > 0
-    /// - Create Job object with escrow
-    /// - Create JobCap linked to job
-    /// - Emit JobCreated event
-    /// - Share Job object
-    /// - Transfer JobCap to client
+    /// Validates budget and deadline, creates Job object with escrow,
+    /// creates JobCap for client, emits JobCreated event
     public fun create_job(
         title: vector<u8>,
         description_blob_id: vector<u8>,
@@ -210,35 +205,93 @@ module zk_freelance::job_escrow {
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        // TODO: Implement
-        abort ENotAuthorized
+        let sender = ctx.sender();
+        let timestamp = clock::timestamp_ms(clock);
+        let budget_amount = coin::value(&budget);
+
+        // Validation
+        assert!(budget_amount > 0, EInsufficientFunds);
+        assert!(deadline > timestamp, EDeadlinePassed);
+        assert!(vector::length(&title) > 0, EInvalidState);
+
+        // Create Job object
+        let job_uid = object::new(ctx);
+        let job_id = object::uid_to_inner(&job_uid);
+
+        let job = Job {
+            id: job_uid,
+            client: sender,
+            freelancer: option::none(),
+            title,
+            description_blob_id,
+            budget: budget_amount,
+            escrow: coin::into_balance(budget),
+            state: STATE_OPEN,
+            milestones: table::new(ctx),
+            milestone_count: 0,
+            applicants: vector::empty(),
+            created_at: timestamp,
+            deadline,
+            deliverable_blob_ids: vector::empty(),
+        };
+
+        // Create JobCap
+        let cap = JobCap {
+            id: object::new(ctx),
+            job_id,
+        };
+
+        // Emit event (CRITICAL for marketplace discovery)
+        event::emit(JobCreated {
+            job_id,
+            client: sender,
+            title,
+            description_blob_id,
+            budget: budget_amount,
+            deadline,
+            milestone_count: 0,
+            state: STATE_OPEN,
+            timestamp,
+        });
+
+        // Share job (makes it accessible to all)
+        transfer::share_object(job);
+
+        // Transfer capability to client
+        transfer::transfer(cap, sender);
     }
 
     /// Apply for a job as freelancer
     ///
-    /// TODO: Implement
-    /// - Check job state is OPEN
-    /// - Check not already applied
-    /// - Add sender to applicants list
-    /// - Emit FreelancerApplied event
+    /// Validates job is open, freelancer hasn't applied, adds to applicants
     public fun apply_for_job(
         job: &mut Job,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        // TODO: Implement
-        abort ENotAuthorized
+        let sender = ctx.sender();
+        let timestamp = clock::timestamp_ms(clock);
+
+        // Validation
+        assert!(job.state == STATE_OPEN, EJobNotOpen);
+        assert!(!is_deadline_passed(job, clock), EDeadlinePassed);
+        assert!(sender != job.client, ENotAuthorized);
+        assert!(!vector::contains(&job.applicants, &sender), EAlreadyApplied);
+
+        // Add to applicants
+        vector::push_back(&mut job.applicants, sender);
+
+        // Emit event
+        event::emit(FreelancerApplied {
+            job_id: object::id(job),
+            freelancer: sender,
+            timestamp,
+        });
     }
 
     /// Assign freelancer to job (client only)
     ///
-    /// TODO: Implement
-    /// - Verify JobCap ownership and linkage
-    /// - Check job state is OPEN
-    /// - Check freelancer is in applicants list
-    /// - Set freelancer
-    /// - Change state to ASSIGNED
-    /// - Emit FreelancerAssigned event
+    /// Validates JobCap, assigns freelancer from applicants, transitions to ASSIGNED
     public fun assign_freelancer(
         job: &mut Job,
         cap: &JobCap,
@@ -246,36 +299,74 @@ module zk_freelance::job_escrow {
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        // TODO: Implement
-        abort ENotAuthorized
+        let timestamp = clock::timestamp_ms(clock);
+
+        // Validation
+        verify_cap(job, cap);
+        assert!(job.state == STATE_OPEN, EInvalidState);
+        assert!(vector::contains(&job.applicants, &freelancer), ENotAuthorized);
+
+        // State transition
+        let old_state = job.state;
+        job.state = STATE_ASSIGNED;
+        job.freelancer = option::some(freelancer);
+
+        // Emit events
+        event::emit(FreelancerAssigned {
+            job_id: object::id(job),
+            client: job.client,
+            freelancer,
+            timestamp,
+        });
+
+        event::emit(JobStateChanged {
+            job_id: object::id(job),
+            old_state,
+            new_state: STATE_ASSIGNED,
+            freelancer: option::some(freelancer),
+            timestamp,
+        });
     }
 
     /// Start work on job (freelancer only)
     ///
-    /// TODO: Implement
-    /// - Verify caller is assigned freelancer
-    /// - Check state is ASSIGNED
-    /// - Change state to IN_PROGRESS
-    /// - Emit JobStarted event
+    /// Validates assigned freelancer, transitions job to IN_PROGRESS
     public fun start_job(
         job: &mut Job,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        // TODO: Implement
-        abort ENotAuthorized
+        let sender = ctx.sender();
+        let timestamp = clock::timestamp_ms(clock);
+
+        // Validation
+        assert!(job.state == STATE_ASSIGNED, EInvalidState);
+        assert!(option::contains(&job.freelancer, &sender), EFreelancerNotAssigned);
+        assert!(!is_deadline_passed(job, clock), EDeadlinePassed);
+
+        // State transition
+        let old_state = job.state;
+        job.state = STATE_IN_PROGRESS;
+
+        // Emit events
+        event::emit(JobStarted {
+            job_id: object::id(job),
+            freelancer: sender,
+            timestamp,
+        });
+
+        event::emit(JobStateChanged {
+            job_id: object::id(job),
+            old_state,
+            new_state: STATE_IN_PROGRESS,
+            freelancer: job.freelancer,
+            timestamp,
+        });
     }
 
     /// Submit milestone completion (freelancer only)
     ///
-    /// TODO: Implement
-    /// - Verify caller is freelancer
-    /// - Check milestone exists and not completed
-    /// - Set submission_blob_id
-    /// - Mark completed
-    /// - Record timestamp
-    /// - Change job state to SUBMITTED/AWAITING_REVIEW
-    /// - Emit MilestoneSubmitted event
+    /// Validates freelancer, marks milestone completed, transitions to SUBMITTED
     public fun submit_milestone(
         job: &mut Job,
         milestone_id: u64,
@@ -283,20 +374,51 @@ module zk_freelance::job_escrow {
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        // TODO: Implement
-        abort ENotAuthorized
+        let sender = ctx.sender();
+        let timestamp = clock::timestamp_ms(clock);
+
+        // Validation
+        assert!(job.state == STATE_IN_PROGRESS, EInvalidState);
+        assert!(option::contains(&job.freelancer, &sender), EFreelancerNotAssigned);
+        assert!(table::contains(&job.milestones, milestone_id), EInvalidMilestone);
+
+        // Get milestone
+        let milestone = table::borrow_mut(&mut job.milestones, milestone_id);
+        assert!(!milestone.completed, EInvalidState);
+
+        // Update milestone
+        milestone.completed = true;
+        milestone.submission_blob_id = option::some(proof_blob_id);
+        milestone.submitted_at = option::some(timestamp);
+
+        // Add deliverable blob ID
+        vector::push_back(&mut job.deliverable_blob_ids, proof_blob_id);
+
+        // State transition
+        let old_state = job.state;
+        job.state = STATE_SUBMITTED;
+
+        // Emit events
+        event::emit(MilestoneSubmitted {
+            job_id: object::id(job),
+            milestone_id,
+            freelancer: sender,
+            submission_blob_id: proof_blob_id,
+            timestamp,
+        });
+
+        event::emit(JobStateChanged {
+            job_id: object::id(job),
+            old_state,
+            new_state: STATE_SUBMITTED,
+            freelancer: job.freelancer,
+            timestamp,
+        });
     }
 
     /// Approve milestone and release funds (client only)
     ///
-    /// TODO: Implement
-    /// - Verify JobCap ownership
-    /// - Check milestone completed but not approved
-    /// - Mark approved
-    /// - Release funds from escrow to freelancer
-    /// - Record timestamp
-    /// - Check if all milestones approved → complete job
-    /// - Emit MilestoneApproved event
+    /// Validates JobCap, releases payment, checks for job completion
     public fun approve_milestone(
         job: &mut Job,
         cap: &JobCap,
@@ -304,18 +426,68 @@ module zk_freelance::job_escrow {
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        // TODO: Implement
-        abort ENotAuthorized
+        let timestamp = clock::timestamp_ms(clock);
+
+        // Validation
+        verify_cap(job, cap);
+        assert!(job.state == STATE_SUBMITTED || job.state == STATE_AWAITING_REVIEW, EInvalidState);
+        assert!(table::contains(&job.milestones, milestone_id), EInvalidMilestone);
+        assert!(option::is_some(&job.freelancer), EFreelancerNotAssigned);
+
+        // Get milestone
+        let milestone = table::borrow_mut(&mut job.milestones, milestone_id);
+        assert!(milestone.completed && !milestone.approved, EInvalidState);
+
+        // Mark approved
+        milestone.approved = true;
+        milestone.approved_at = option::some(timestamp);
+
+        let freelancer = *option::borrow(&job.freelancer);
+        let amount = milestone.amount;
+
+        // Release funds from escrow
+        let payment = coin::take(&mut job.escrow, amount, ctx);
+        transfer::public_transfer(payment, freelancer);
+
+        // Emit payment event
+        event::emit(FundsReleased {
+            job_id: object::id(job),
+            recipient: freelancer,
+            amount,
+            reason: 0,  // 0 = milestone payment
+            timestamp,
+        });
+
+        // Emit milestone approved event
+        event::emit(MilestoneApproved {
+            job_id: object::id(job),
+            milestone_id,
+            amount,
+            freelancer,
+            timestamp,
+        });
+
+        // Check if all milestones approved
+        if (all_milestones_approved(job)) {
+            complete_job(job, clock);
+        } else {
+            // Back to IN_PROGRESS for next milestone
+            let old_state = job.state;
+            job.state = STATE_IN_PROGRESS;
+
+            event::emit(JobStateChanged {
+                job_id: object::id(job),
+                old_state,
+                new_state: STATE_IN_PROGRESS,
+                freelancer: job.freelancer,
+                timestamp,
+            });
+        }
     }
 
     /// Add milestone to job (client only, before assignment)
     ///
-    /// TODO: Implement
-    /// - Verify JobCap ownership
-    /// - Check state is OPEN
-    /// - Validate milestone amount
-    /// - Add to milestones table
-    /// - Increment milestone_count
+    /// Validates JobCap, adds milestone with amount validation
     public fun add_milestone(
         job: &mut Job,
         cap: &JobCap,
@@ -323,40 +495,131 @@ module zk_freelance::job_escrow {
         amount: u64,
         ctx: &mut TxContext
     ) {
-        // TODO: Implement
-        abort ENotAuthorized
+        // Validation
+        verify_cap(job, cap);
+        assert!(job.state == STATE_OPEN, EInvalidState);
+        assert!(amount > 0 && amount <= job.budget, EInvalidMilestone);
+
+        // Validate total milestones don't exceed budget
+        let mut total_milestone_amount = amount;
+        let mut i = 0;
+        while (i < job.milestone_count) {
+            let milestone = table::borrow(&job.milestones, i);
+            total_milestone_amount = total_milestone_amount + milestone.amount;
+            i = i + 1;
+        };
+        assert!(total_milestone_amount <= job.budget, EInvalidMilestone);
+
+        // Create milestone
+        let milestone = Milestone {
+            id: job.milestone_count,
+            description,
+            amount,
+            completed: false,
+            approved: false,
+            submission_blob_id: option::none(),
+            submitted_at: option::none(),
+            approved_at: option::none(),
+        };
+
+        // Add to table
+        table::add(&mut job.milestones, job.milestone_count, milestone);
+        job.milestone_count = job.milestone_count + 1;
     }
 
     /// Cancel job and refund (client only, before IN_PROGRESS)
     ///
-    /// TODO: Implement
-    /// - Verify JobCap ownership
-    /// - Check state allows cancellation (OPEN or ASSIGNED)
-    /// - Refund escrow to client
-    /// - Change state to CANCELLED
-    /// - Emit JobCancelled event
+    /// Validates JobCap, refunds escrow to client, transitions to CANCELLED
     public fun cancel_job(
         job: &mut Job,
         cap: &JobCap,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        // TODO: Implement
-        abort ENotAuthorized
+        let timestamp = clock::timestamp_ms(clock);
+
+        // Validation
+        verify_cap(job, cap);
+        assert!(
+            job.state == STATE_OPEN || job.state == STATE_ASSIGNED,
+            EInvalidState
+        );
+
+        let cancelled_state = job.state;
+        let old_state = job.state;
+        job.state = STATE_CANCELLED;
+
+        // Refund escrow to client
+        let refund_amount = balance::value(&job.escrow);
+        let refund = coin::take(&mut job.escrow, refund_amount, ctx);
+        transfer::public_transfer(refund, job.client);
+
+        // Emit events
+        event::emit(FundsReleased {
+            job_id: object::id(job),
+            recipient: job.client,
+            amount: refund_amount,
+            reason: 2,  // 2 = refund
+            timestamp,
+        });
+
+        event::emit(JobCancelled {
+            job_id: object::id(job),
+            client: job.client,
+            refund_amount,
+            cancelled_state,
+            timestamp,
+        });
+
+        event::emit(JobStateChanged {
+            job_id: object::id(job),
+            old_state,
+            new_state: STATE_CANCELLED,
+            freelancer: job.freelancer,
+            timestamp,
+        });
     }
 
     /// Complete job (internal, called when all milestones approved)
     ///
-    /// TODO: Implement
-    /// - Check all milestones approved
-    /// - Change state to COMPLETED
-    /// - Emit JobCompleted event
+    /// Transitions job to COMPLETED, emits completion event
     fun complete_job(
         job: &mut Job,
         clock: &Clock,
     ) {
-        // TODO: Implement
-        abort ENotAuthorized
+        let timestamp = clock::timestamp_ms(clock);
+
+        // State transition
+        let old_state = job.state;
+        job.state = STATE_COMPLETED;
+
+        let freelancer = *option::borrow(&job.freelancer);
+
+        // Calculate total paid
+        let mut total_paid = 0;
+        let mut i = 0;
+        while (i < job.milestone_count) {
+            let milestone = table::borrow(&job.milestones, i);
+            total_paid = total_paid + milestone.amount;
+            i = i + 1;
+        };
+
+        // Emit events
+        event::emit(JobCompleted {
+            job_id: object::id(job),
+            client: job.client,
+            freelancer,
+            total_paid,
+            timestamp,
+        });
+
+        event::emit(JobStateChanged {
+            job_id: object::id(job),
+            old_state,
+            new_state: STATE_COMPLETED,
+            freelancer: job.freelancer,
+            timestamp,
+        });
     }
 
     // ======== Getter Functions ========
@@ -393,13 +656,80 @@ module zk_freelance::job_escrow {
 
     /// Check if address is in applicants
     public fun is_applicant(job: &Job, addr: address): bool {
-        // TODO: Implement vector search
-        false
+        vector::contains(&job.applicants, &addr)
     }
 
     /// Get JobCap's linked job ID
     public fun get_cap_job_id(cap: &JobCap): ID {
         cap.job_id
+    }
+
+    /// Get job title
+    public fun get_title(job: &Job): vector<u8> {
+        job.title
+    }
+
+    /// Get description blob ID
+    public fun get_description_blob_id(job: &Job): vector<u8> {
+        job.description_blob_id
+    }
+
+    /// Get escrow balance
+    public fun get_escrow_balance(job: &Job): u64 {
+        balance::value(&job.escrow)
+    }
+
+    /// Get applicant count
+    public fun get_applicant_count(job: &Job): u64 {
+        vector::length(&job.applicants)
+    }
+
+    /// Get created timestamp
+    public fun get_created_at(job: &Job): u64 {
+        job.created_at
+    }
+
+    /// Get deliverable blob IDs count
+    public fun get_deliverable_count(job: &Job): u64 {
+        vector::length(&job.deliverable_blob_ids)
+    }
+
+    /// Get milestone (returns reference to milestone)
+    public fun get_milestone(job: &Job, milestone_id: u64): &Milestone {
+        table::borrow(&job.milestones, milestone_id)
+    }
+
+    /// Milestone getters
+    public fun milestone_get_id(milestone: &Milestone): u64 {
+        milestone.id
+    }
+
+    public fun milestone_get_description(milestone: &Milestone): vector<u8> {
+        milestone.description
+    }
+
+    public fun milestone_get_amount(milestone: &Milestone): u64 {
+        milestone.amount
+    }
+
+    public fun milestone_is_completed(milestone: &Milestone): bool {
+        milestone.completed
+    }
+
+    public fun milestone_is_approved(milestone: &Milestone): bool {
+        milestone.approved
+    }
+
+    public fun milestone_get_submission_blob_id(milestone: &Milestone): Option<vector<u8>> {
+        milestone.submission_blob_id
+    }
+
+    public fun milestone_get_submitted_at(milestone: &Milestone): Option<u64> {
+        milestone.submitted_at
+    }
+
+    public fun milestone_get_approved_at(milestone: &Milestone): Option<u64> {
+        milestone.approved_at
     }
 
     // ======== Helper Functions ========
@@ -416,7 +746,48 @@ module zk_freelance::job_escrow {
 
     /// Validate state transition
     fun can_transition(from: u8, to: u8): bool {
-        // TODO: Implement state machine validation
+        // OPEN → ASSIGNED or CANCELLED
+        if (from == STATE_OPEN) {
+            return to == STATE_ASSIGNED || to == STATE_CANCELLED
+        };
+
+        // ASSIGNED → IN_PROGRESS or CANCELLED
+        if (from == STATE_ASSIGNED) {
+            return to == STATE_IN_PROGRESS || to == STATE_CANCELLED
+        };
+
+        // IN_PROGRESS → SUBMITTED
+        if (from == STATE_IN_PROGRESS) {
+            return to == STATE_SUBMITTED
+        };
+
+        // SUBMITTED → AWAITING_REVIEW
+        if (from == STATE_SUBMITTED) {
+            return to == STATE_AWAITING_REVIEW
+        };
+
+        // AWAITING_REVIEW → IN_PROGRESS or COMPLETED
+        if (from == STATE_AWAITING_REVIEW) {
+            return to == STATE_IN_PROGRESS || to == STATE_COMPLETED
+        };
+
+        false
+    }
+
+    /// Check if all milestones are approved
+    fun all_milestones_approved(job: &Job): bool {
+        if (job.milestone_count == 0) {
+            return false
+        };
+
+        let mut i = 0;
+        while (i < job.milestone_count) {
+            let milestone = table::borrow(&job.milestones, i);
+            if (!milestone.approved) {
+                return false
+            };
+            i = i + 1;
+        };
         true
     }
 
