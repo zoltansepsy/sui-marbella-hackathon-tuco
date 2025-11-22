@@ -8,6 +8,8 @@
 /// 4. Add applicant management
 /// 5. Test all state transitions
 /// 6. Add comprehensive error codes
+/// 7. **CRITICAL**: Emit events in ALL state-changing functions (required for event-based indexing)
+/// 8. Create job_escrow_tests.move with tests for event emissions
 
 module zk_freelance::job_escrow {
     use sui::coin::{Self, Coin};
@@ -91,62 +93,100 @@ module zk_freelance::job_escrow {
     }
 
     // ======== Events ========
+    //
+    // NOTE: Events include comprehensive data for client-side indexing
+    // This follows Sui's event-based discovery pattern for marketplace listings
+    // Events are the primary mechanism for discovering jobs across all clients
 
+    /// Emitted when a new job is created
+    /// Contains all essential job data to avoid additional queries
     public struct JobCreated has copy, drop {
         job_id: ID,
         client: address,
+        title: vector<u8>,
+        description_blob_id: vector<u8>,
         budget: u64,
         deadline: u64,
+        milestone_count: u64,
+        state: u8,  // Always STATE_OPEN at creation
         timestamp: u64,
     }
 
+    /// Emitted when a freelancer applies for a job
     public struct FreelancerApplied has copy, drop {
         job_id: ID,
         freelancer: address,
         timestamp: u64,
     }
 
+    /// Emitted when client assigns a freelancer to a job
+    /// Includes both client and freelancer for bi-directional queries
     public struct FreelancerAssigned has copy, drop {
+        job_id: ID,
+        client: address,
+        freelancer: address,
+        timestamp: u64,
+    }
+
+    /// Emitted when job state changes
+    /// Allows tracking current job state without querying Job object
+    public struct JobStateChanged has copy, drop {
+        job_id: ID,
+        old_state: u8,
+        new_state: u8,
+        freelancer: Option<address>,  // Included for filtering
+        timestamp: u64,
+    }
+
+    /// Emitted when freelancer starts work
+    public struct JobStarted has copy, drop {
         job_id: ID,
         freelancer: address,
         timestamp: u64,
     }
 
-    public struct JobStarted has copy, drop {
-        job_id: ID,
-        timestamp: u64,
-    }
-
+    /// Emitted when freelancer submits milestone
     public struct MilestoneSubmitted has copy, drop {
         job_id: ID,
         milestone_id: u64,
         freelancer: address,
+        submission_blob_id: vector<u8>,  // For preview/verification
         timestamp: u64,
     }
 
+    /// Emitted when client approves milestone
     public struct MilestoneApproved has copy, drop {
         job_id: ID,
         milestone_id: u64,
         amount: u64,
+        freelancer: address,
         timestamp: u64,
     }
 
+    /// Emitted when job is fully completed
     public struct JobCompleted has copy, drop {
         job_id: ID,
+        client: address,
+        freelancer: address,
         total_paid: u64,
         timestamp: u64,
     }
 
+    /// Emitted when job is cancelled
     public struct JobCancelled has copy, drop {
         job_id: ID,
+        client: address,
         refund_amount: u64,
+        cancelled_state: u8,  // State when cancelled (OPEN or ASSIGNED)
         timestamp: u64,
     }
 
+    /// Emitted when funds are released from escrow
     public struct FundsReleased has copy, drop {
         job_id: ID,
         recipient: address,
         amount: u64,
+        reason: u8,  // 0=milestone, 1=completion, 2=refund
         timestamp: u64,
     }
 
