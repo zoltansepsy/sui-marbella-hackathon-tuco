@@ -10,6 +10,7 @@ import { SealWhitelist } from "./SealWhitelist";
 import { Resources } from "./Resources";
 import { MyJobsView } from "./components/job/MyJobsView";
 import { JobMarketplaceView } from "./JobMarketplaceView";
+import { CreateJobView } from "./components/job/CreateJobView";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useView } from "./contexts/ViewContext";
@@ -186,12 +187,13 @@ export default function Home() {
                   )}
 
                   {view === "createJob" && (
-                    <div className="text-center py-12">
-                      <h2 className="text-2xl font-bold mb-4">Create Job</h2>
-                      <p className="text-muted-foreground mb-4">Post a new job (Coming Soon)</p>
-                      <p className="text-sm text-muted-foreground">DEV 3: Implement CreateJobView component</p>
-                      <Button onClick={() => setView("home")} className="mt-4">Back to Home</Button>
-                    </div>
+                    <CreateJobView
+                      onBack={() => setView("home")}
+                      onSuccess={(jobId) => {
+                        console.log("Job created:", jobId);
+                        setView("marketplace");
+                      }}
+                    />
                   )}
 
                   {view === "profile" && (
