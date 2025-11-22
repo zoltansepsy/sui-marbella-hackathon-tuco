@@ -24,12 +24,12 @@ interface JobCardProps {
 }
 
 export function JobCard({ job, onClick }: JobCardProps) {
-  // TODO: Implement formatting helpers
+  // Format helpers
   const formatBudget = (amount: number) => {
     return `${(amount / 1_000_000_000).toFixed(2)} SUI`;
   };
 
-  const formatDeadline = (timestamp: number) => {
+  const formatDeadlineDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString();
   };
 
@@ -73,7 +73,7 @@ export function JobCard({ job, onClick }: JobCardProps) {
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Deadline:</span>
-            <span>{formatDeadline(job.deadline)}</span>
+            <span>{formatDeadlineDate(job.deadline)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Milestones:</span>
