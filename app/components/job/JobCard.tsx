@@ -33,9 +33,23 @@ export function JobCard({ job, onClick }: JobCardProps) {
     return new Date(timestamp).toLocaleDateString();
   };
 
-  const getStateBadgeVariant = (state: JobState) => {
-    // TODO: Map to badge variant
-    return "default" as const;
+  const getStateBadgeVariant = (state: JobState): "default" | "success" | "warning" | "info" | "secondary" | "destructive" => {
+    switch (state) {
+      case JobState.OPEN:
+      case JobState.ASSIGNED:
+        return "success";
+      case JobState.IN_PROGRESS:
+      case JobState.SUBMITTED:
+      case JobState.AWAITING_REVIEW:
+        return "info";
+      case JobState.COMPLETED:
+        return "secondary";
+      case JobState.CANCELLED:
+      case JobState.DISPUTED:
+        return "destructive";
+      default:
+        return "default";
+    }
   };
 
   return (
@@ -54,20 +68,20 @@ export function JobCard({ job, onClick }: JobCardProps) {
       <CardContent>
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Budget:</span>
+            <span className="text-muted-foreground">Budget:</span>
             <span className="font-semibold">{formatBudget(job.budget)}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Deadline:</span>
+            <span className="text-muted-foreground">Deadline:</span>
             <span>{formatDeadline(job.deadline)}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Milestones:</span>
+            <span className="text-muted-foreground">Milestones:</span>
             <span>{job.milestoneCount}</span>
           </div>
           {job.applicants.length > 0 && (
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Applicants:</span>
+              <span className="text-muted-foreground">Applicants:</span>
               <span>{job.applicants.length}</span>
             </div>
           )}
