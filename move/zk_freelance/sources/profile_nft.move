@@ -591,7 +591,7 @@ module zk_freelance::profile_nft {
 
     #[test_only]
     public fun init_for_testing(ctx: &mut TxContext) {
-        // Test initialization if needed
+        init(ctx)
     }
 
     #[test_only]

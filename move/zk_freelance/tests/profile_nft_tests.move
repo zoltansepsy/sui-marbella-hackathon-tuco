@@ -1,9 +1,9 @@
 /// Minimal test for zkLogin profile creation
 #[test_only]
 module zk_freelance::profile_nft_tests_minimal {
-    use sui::test_scenario::{Self as ts};
-    use sui::clock;
-    use zk_freelance::profile_nft::{Self, Profile, ProfileCap};
+    use sui::test_scenario::{Self as ts, Scenario};
+    use sui::clock::{Self, Clock};
+    use zk_freelance::profile_nft::{Self, Profile, ProfileCap, IdentityRegistry};
 
     const USER_A: address = @0xA;
     const USER_B: address = @0xB;
@@ -38,11 +38,23 @@ module zk_freelance::profile_nft_tests_minimal {
     ) {
         ts::next_tx(scenario, user);
         {
+            let mut registry = ts::take_shared<IdentityRegistry>(scenario);
             let clock = create_clock(scenario);
             let (_, real_name, bio, tags, avatar_url) = get_basic_profile_data();
 
+            // Create unique zklogin_sub based on username
+            let mut zklogin_sub = b"zklogin_sub_";
+            vector::append(&mut zklogin_sub, username);
+
+            // Create unique email based on username
+            let mut email = username;
+            vector::append(&mut email, b"@example.com");
+
             profile_nft::create_profile(
+                &mut registry,
                 profile_type,
+                zklogin_sub,
+                email,
                 username,
                 real_name,
                 bio,
@@ -53,6 +65,7 @@ module zk_freelance::profile_nft_tests_minimal {
             );
 
             clock::destroy_for_testing(clock);
+            ts::return_shared(registry);
         };
     }
 
@@ -63,13 +76,24 @@ module zk_freelance::profile_nft_tests_minimal {
     fun test_create_freelancer_profile() {
         let mut scenario = ts::begin(USER_A);
 
+        // Initialize registry
         ts::next_tx(&mut scenario, USER_A);
         {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
+
+        // Create profile
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            let mut registry = ts::take_shared<IdentityRegistry>(&scenario);
             let clock = create_clock(&mut scenario);
             let (username, real_name, bio, tags, avatar_url) = get_basic_profile_data();
 
             profile_nft::create_profile(
+                &mut registry,
                 PROFILE_TYPE_FREELANCER,
+                b"zklogin_sub_USER_A",
+                b"usera@example.com",
                 username,
                 real_name,
                 bio,
@@ -80,6 +104,7 @@ module zk_freelance::profile_nft_tests_minimal {
             );
 
             clock::destroy_for_testing(clock);
+            ts::return_shared(registry);
         };
 
         // Verify profile and cap were created
@@ -110,6 +135,12 @@ module zk_freelance::profile_nft_tests_minimal {
     /// Test 2: Create basic client profile
     fun test_create_client_profile() {
         let mut scenario = ts::begin(USER_B);
+
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_B);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
 
         create_profile_helper(&mut scenario, USER_B, PROFILE_TYPE_CLIENT, b"clientuser");
 
@@ -172,18 +203,23 @@ module zk_freelance::profile_nft_tests_minimal {
     fun test_update_single_field() {
         let mut scenario = ts::begin(USER_A);
 
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
+
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"oldusername");
 
         ts::next_tx(&mut scenario, USER_A);
         {
-            let mut profile = ts::take_from_sender<Profile>(&scenario);
+            let profile = ts::take_from_sender<Profile>(&scenario);
             let cap = ts::take_from_sender<ProfileCap>(&scenario);
 
             assert!(profile_nft::get_owner(&profile) == USER_A);
-            assert!(profile_nft::get_zklogin_sub(&profile) == std::string::utf8(b"google_oauth_sub_12345"));
-            assert!(profile_nft::get_email(&profile) == std::string::utf8(b"user@example.com"));
+            assert!(profile_nft::get_zklogin_sub(&profile) == std::string::utf8(b"zklogin_sub_oldusername"));
+            assert!(profile_nft::get_email(&profile) == std::string::utf8(b"oldusername@example.com"));
 
-            clock::destroy_for_testing(clock);
             ts::return_to_sender(&scenario, profile);
             ts::return_to_sender(&scenario, cap);
         };
@@ -195,6 +231,12 @@ module zk_freelance::profile_nft_tests_minimal {
     /// Test 6: Update all fields at once
     fun test_update_all_fields() {
         let mut scenario = ts::begin(USER_A);
+
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
 
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"user1");
 
@@ -229,6 +271,12 @@ module zk_freelance::profile_nft_tests_minimal {
     fun test_update_with_all_none() {
         let mut scenario = ts::begin(USER_A);
 
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
+
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"user1");
 
         ts::next_tx(&mut scenario, USER_A);
@@ -251,7 +299,6 @@ module zk_freelance::profile_nft_tests_minimal {
             );
 
             clock::destroy_for_testing(clock);
->>>>>>> 3e7ea23 (refactor unit tests)
             ts::return_to_sender(&scenario, profile);
             ts::return_to_sender(&scenario, cap);
         };
@@ -263,6 +310,12 @@ module zk_freelance::profile_nft_tests_minimal {
     /// Test 8: First rating
     fun test_first_rating() {
         let mut scenario = ts::begin(USER_A);
+
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
 
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
@@ -287,6 +340,12 @@ module zk_freelance::profile_nft_tests_minimal {
     /// Test 9: Second rating (average calculation)
     fun test_second_rating_average() {
         let mut scenario = ts::begin(USER_A);
+
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
 
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
@@ -318,6 +377,12 @@ module zk_freelance::profile_nft_tests_minimal {
     fun test_multiple_ratings() {
         let mut scenario = ts::begin(USER_A);
 
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
+
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
         ts::next_tx(&mut scenario, USER_A);
@@ -342,7 +407,6 @@ module zk_freelance::profile_nft_tests_minimal {
             // Average with iterative calculation: 469 (not 471 due to rounding in each step)
             // Simple avg: (500+450+480+470+460+490+450+440+500+470)/10 = 471
             // Iterative avg uses integer division at each step, causing slight deviation
->>>>>>> 3e7ea23 (refactor unit tests)
             assert!(profile_nft::get_rating(&profile) == 469, 1);
 
             clock::destroy_for_testing(clock);
@@ -356,6 +420,12 @@ module zk_freelance::profile_nft_tests_minimal {
     /// Test 11: Minimum valid rating (10)
     fun test_minimum_valid_rating() {
         let mut scenario = ts::begin(USER_A);
+
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
 
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
@@ -380,6 +450,12 @@ module zk_freelance::profile_nft_tests_minimal {
     fun test_maximum_valid_rating() {
         let mut scenario = ts::begin(USER_A);
 
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
+
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
         ts::next_tx(&mut scenario, USER_A);
@@ -402,6 +478,12 @@ module zk_freelance::profile_nft_tests_minimal {
     /// Test 13: First job completion
     fun test_first_job_completion() {
         let mut scenario = ts::begin(USER_A);
+
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
 
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
@@ -427,6 +509,12 @@ module zk_freelance::profile_nft_tests_minimal {
     /// Test 14: Multiple job completions
     fun test_multiple_job_completions() {
         let mut scenario = ts::begin(USER_A);
+
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
 
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
@@ -467,6 +555,12 @@ module zk_freelance::profile_nft_tests_minimal {
     fun test_job_completion_zero_amount() {
         let mut scenario = ts::begin(USER_A);
 
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
+
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
         ts::next_tx(&mut scenario, USER_A);
@@ -491,6 +585,12 @@ module zk_freelance::profile_nft_tests_minimal {
     /// Test 16: Job completion removes from active jobs
     fun test_job_completion_removes_from_active() {
         let mut scenario = ts::begin(USER_A);
+
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
 
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
@@ -524,6 +624,12 @@ module zk_freelance::profile_nft_tests_minimal {
     fun test_complete_job_not_in_active() {
         let mut scenario = ts::begin(USER_A);
 
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
+
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
         ts::next_tx(&mut scenario, USER_A);
@@ -548,6 +654,12 @@ module zk_freelance::profile_nft_tests_minimal {
     /// Test 18: Add first active job
     fun test_add_first_active_job() {
         let mut scenario = ts::begin(USER_A);
+
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
 
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
@@ -574,6 +686,12 @@ module zk_freelance::profile_nft_tests_minimal {
     /// Test 19: Add multiple active jobs
     fun test_add_multiple_active_jobs() {
         let mut scenario = ts::begin(USER_A);
+
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
 
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
@@ -614,6 +732,12 @@ module zk_freelance::profile_nft_tests_minimal {
     fun test_remove_existing_job() {
         let mut scenario = ts::begin(USER_A);
 
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
+
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
         ts::next_tx(&mut scenario, USER_A);
@@ -640,6 +764,12 @@ module zk_freelance::profile_nft_tests_minimal {
     fun test_remove_nonexistent_job() {
         let mut scenario = ts::begin(USER_A);
 
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
+
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
         ts::next_tx(&mut scenario, USER_A);
@@ -664,6 +794,12 @@ module zk_freelance::profile_nft_tests_minimal {
     /// Test 22: Remove all jobs one by one
     fun test_remove_all_jobs() {
         let mut scenario = ts::begin(USER_A);
+
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
 
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
@@ -711,6 +847,12 @@ module zk_freelance::profile_nft_tests_minimal {
     /// Test 23: Full user journey - Freelancer
     fun test_full_journey_freelancer() {
         let mut scenario = ts::begin(USER_A);
+
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
 
         // Create profile
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"senior_dev");
@@ -784,17 +926,26 @@ module zk_freelance::profile_nft_tests_minimal {
     #[test]
     #[expected_failure(abort_code = zk_freelance::profile_nft::EInvalidProfileType)]
     /// Test 24: Invalid profile type (too high)
->>>>>>> 3e7ea23 (refactor unit tests)
     fun test_invalid_profile_type_high() {
         let mut scenario = ts::begin(USER_A);
 
+        // Initialize registry
         ts::next_tx(&mut scenario, USER_A);
         {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
+
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            let mut registry = ts::take_shared<IdentityRegistry>(&scenario);
             let clock = create_clock(&mut scenario);
             let (username, real_name, bio, tags, avatar_url) = get_basic_profile_data();
 
             profile_nft::create_profile(
+                &mut registry,
                 2, // Invalid: only 0 and 1 are valid
+                b"zklogin_sub_test",
+                b"test@example.com",
                 username,
                 real_name,
                 bio,
@@ -805,6 +956,7 @@ module zk_freelance::profile_nft_tests_minimal {
             );
 
             clock::destroy_for_testing(clock);
+            ts::return_shared(registry);
         };
 
         ts::end(scenario);
@@ -813,17 +965,26 @@ module zk_freelance::profile_nft_tests_minimal {
     #[test]
     #[expected_failure(abort_code = zk_freelance::profile_nft::EInvalidProfileType)]
     /// Test 25: Invalid profile type (255)
->>>>>>> 3e7ea23 (refactor unit tests)
     fun test_invalid_profile_type_max() {
         let mut scenario = ts::begin(USER_A);
 
+        // Initialize registry
         ts::next_tx(&mut scenario, USER_A);
         {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
+
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            let mut registry = ts::take_shared<IdentityRegistry>(&scenario);
             let clock = create_clock(&mut scenario);
             let (username, real_name, bio, tags, avatar_url) = get_basic_profile_data();
 
             profile_nft::create_profile(
+                &mut registry,
                 255,
+                b"zklogin_sub_test",
+                b"test@example.com",
                 username,
                 real_name,
                 bio,
@@ -834,6 +995,7 @@ module zk_freelance::profile_nft_tests_minimal {
             );
 
             clock::destroy_for_testing(clock);
+            ts::return_shared(registry);
         };
 
         ts::end(scenario);
@@ -846,17 +1008,27 @@ module zk_freelance::profile_nft_tests_minimal {
     fun test_update_with_wrong_cap() {
         let mut scenario = ts::begin(USER_A);
 
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
+
         // User A creates profile
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"user_a");
 
         // User B creates profile
         ts::next_tx(&mut scenario, USER_B);
         {
+            let mut registry = ts::take_shared<IdentityRegistry>(&scenario);
             let clock = create_clock(&mut scenario);
             let (_username, real_name, bio, tags, avatar_url) = get_basic_profile_data();
 
             profile_nft::create_profile(
+                &mut registry,
                 PROFILE_TYPE_CLIENT,
+                b"zklogin_sub_user_b",
+                b"userb@example.com",
                 b"user_b",
                 real_name,
                 bio,
@@ -867,6 +1039,7 @@ module zk_freelance::profile_nft_tests_minimal {
             );
 
             clock::destroy_for_testing(clock);
+            ts::return_shared(registry);
         };
 
         // User B tries to update User A's profile with User B's cap
@@ -903,6 +1076,12 @@ module zk_freelance::profile_nft_tests_minimal {
     fun test_rating_below_minimum() {
         let mut scenario = ts::begin(USER_A);
 
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
+
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
         ts::next_tx(&mut scenario, USER_A);
@@ -927,6 +1106,12 @@ module zk_freelance::profile_nft_tests_minimal {
     fun test_rating_zero() {
         let mut scenario = ts::begin(USER_A);
 
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
+
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
         ts::next_tx(&mut scenario, USER_A);
@@ -949,6 +1134,12 @@ module zk_freelance::profile_nft_tests_minimal {
     fun test_rating_above_maximum() {
         let mut scenario = ts::begin(USER_A);
 
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
+
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
         ts::next_tx(&mut scenario, USER_A);
@@ -970,9 +1161,14 @@ module zk_freelance::profile_nft_tests_minimal {
     #[expected_failure(abort_code = zk_freelance::profile_nft::EInvalidRating)]
 
     /// Test 30: Rating = 1000
->>>>>>> 3e7ea23 (refactor unit tests)
     fun test_rating_very_high() {
         let mut scenario = ts::begin(USER_A);
+
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
 
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
@@ -995,6 +1191,12 @@ module zk_freelance::profile_nft_tests_minimal {
     /// Test 31: Add duplicate job ID (VecSet will abort)
     fun test_add_duplicate_job() {
         let mut scenario = ts::begin(USER_A);
+
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
 
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
@@ -1024,6 +1226,12 @@ module zk_freelance::profile_nft_tests_minimal {
     fun test_rating_truncation() {
         let mut scenario = ts::begin(USER_A);
 
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
+
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
         ts::next_tx(&mut scenario, USER_A);
@@ -1051,6 +1259,12 @@ module zk_freelance::profile_nft_tests_minimal {
     /// Test 33: Rating average stability (no drift)
     fun test_rating_no_drift() {
         let mut scenario = ts::begin(USER_A);
+
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
 
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
@@ -1085,6 +1299,12 @@ module zk_freelance::profile_nft_tests_minimal {
     fun test_very_large_amount() {
         let mut scenario = ts::begin(USER_A);
 
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
+
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
         ts::next_tx(&mut scenario, USER_A);
@@ -1111,6 +1331,12 @@ module zk_freelance::profile_nft_tests_minimal {
     /// Test 35: VecSet behavior - remove and re-add same job
     fun test_vecset_remove_and_readd() {
         let mut scenario = ts::begin(USER_A);
+
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
 
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
@@ -1145,6 +1371,12 @@ module zk_freelance::profile_nft_tests_minimal {
     /// Test 36: Verification toggle
     fun test_verification_toggle() {
         let mut scenario = ts::begin(USER_A);
+
+        // Initialize registry
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            profile_nft::init_for_testing(ts::ctx(&mut scenario));
+        };
 
         create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
 
