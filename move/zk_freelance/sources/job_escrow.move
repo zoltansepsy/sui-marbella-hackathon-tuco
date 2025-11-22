@@ -18,6 +18,7 @@ module zk_freelance::job_escrow {
     use sui::table::{Self, Table};
     use sui::event;
     use sui::clock::{Self, Clock};
+    use zk_freelance::profile_nft::{Self, Profile};
 
     // ======== Constants ========
 
@@ -578,6 +579,74 @@ module zk_freelance::job_escrow {
             freelancer: job.freelancer,
             timestamp,
         });
+    }
+
+    // ======== Profile Integration Helper Functions ========
+
+    /// Update client profile when creating a job (optional, for better UX)
+    /// Call this AFTER create_job to track active jobs in profile
+    public fun add_job_to_client_profile(
+        job: &Job,
+        client_profile: &mut Profile,
+        clock: &Clock,
+    ) {
+        assert!(profile_nft::get_owner(client_profile) == job.client, ENotAuthorized);
+        profile_nft::add_active_job(client_profile, object::id(job), clock);
+    }
+
+    /// Update freelancer profile when assigned to job (optional, for better UX)
+    /// Call this AFTER assign_freelancer to track active jobs in profile
+    public fun add_job_to_freelancer_profile(
+        job: &Job,
+        freelancer_profile: &mut Profile,
+        clock: &Clock,
+    ) {
+        let freelancer = *option::borrow(&job.freelancer);
+        assert!(profile_nft::get_owner(freelancer_profile) == freelancer, ENotAuthorized);
+        profile_nft::add_active_job(freelancer_profile, object::id(job), clock);
+    }
+
+    /// Complete job with profile updates (call instead of approve_milestone for final milestone)
+    /// Updates both client and freelancer profiles with job completion stats
+    public fun approve_milestone_with_profiles(
+        job: &mut Job,
+        cap: &JobCap,
+        milestone_id: u64,
+        client_profile: &mut Profile,
+        freelancer_profile: &mut Profile,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        // First approve the milestone normally
+        approve_milestone(job, cap, milestone_id, clock, ctx);
+
+        // If job is now completed, update profiles
+        if (job.state == STATE_COMPLETED) {
+            let job_id = object::id(job);
+            let timestamp = clock::timestamp_ms(clock);
+
+            // Calculate total paid amount
+            let mut total_paid = 0;
+            let mut i = 0;
+            while (i < job.milestone_count) {
+                let milestone = table::borrow(&job.milestones, i);
+                total_paid = total_paid + milestone.amount;
+                i = i + 1;
+            };
+
+            // Validate profile ownership
+            assert!(profile_nft::get_owner(client_profile) == job.client, ENotAuthorized);
+            let freelancer = *option::borrow(&job.freelancer);
+            assert!(profile_nft::get_owner(freelancer_profile) == freelancer, ENotAuthorized);
+
+            // Update profiles - record job completion
+            profile_nft::record_job_completion(client_profile, job_id, total_paid, clock);
+            profile_nft::record_job_completion(freelancer_profile, job_id, total_paid, clock);
+
+            // Remove from active jobs
+            profile_nft::remove_active_job(client_profile, job_id, clock);
+            profile_nft::remove_active_job(freelancer_profile, job_id, clock);
+        }
     }
 
     /// Complete job (internal, called when all milestones approved)

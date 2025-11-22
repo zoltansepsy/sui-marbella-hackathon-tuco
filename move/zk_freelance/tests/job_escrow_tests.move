@@ -436,7 +436,7 @@ module zk_freelance::job_escrow_tests {
 
         ts::next_tx(&mut scenario, CLIENT);
         {
-            let job_ids = ts::most_recent_id_shared<Job>();
+            let mut job_ids = ts::most_recent_id_shared<Job>();
             let mut job2 = ts::take_shared_by_id<Job>(&scenario, option::extract(&mut job_ids));
             let cap1 = ts::take_from_sender<JobCap>(&scenario);
 
