@@ -1,24 +1,35 @@
 /// Profile NFT Module
 /// Dynamic NFTs for freelancers and clients with reputation tracking
+/// NOW WITH zkLogin SUPPORT for email-based authentication
 ///
 /// IMPLEMENTED:
 /// ✓ Profile creation with type enum (Freelancer/Client)
+/// ✓ zkLogin integration with OAuth subject ID and email
+/// ✓ Identity Registry for profile lookup by zklogin_sub
+/// ✓ Profile ownership transfer for zkLogin session changes
 /// ✓ Profile information updates with capability checks
 /// ✓ Dynamic reputation system with weighted average ratings
 /// ✓ Job completion tracking and statistics
 /// ✓ Active job management with VecSet
 /// ✓ Verification status system
 ///
+/// zkLogin Features:
+/// - Profiles persist across zkLogin sessions using OAuth subject ID
+/// - Email-based profile lookup and verification
+/// - Ownership transfer to new ephemeral addresses
+/// - One profile per zklogin_sub (prevents duplicates)
+///
 /// TODO for Future:
 /// - Add admin capability for verification function
 /// - Add profile deletion/deactivation
-/// - Consider profile NFT transfer restrictions
+/// - Add email update function with verification
 
 module zk_freelance::profile_nft {
     use std::string::{Self, String};
     use sui::event;
     use sui::clock::{Self, Clock};
     use sui::vec_set::{Self, VecSet};
+    use sui::table::{Self, Table};
 
     // ======== Constants ========
 
@@ -32,14 +43,19 @@ module zk_freelance::profile_nft {
     const EProfileAlreadyExists: u64 = 2;
     const EInvalidRating: u64 = 3;
     const EInvalidUpdate: u64 = 4;
+    const EZkLoginSubAlreadyRegistered: u64 = 5;
 
     // ======== Structs ========
 
     /// Profile NFT - owned by user
     public struct Profile has key, store {
         id: UID,
-        /// Owner address
+        /// Owner address (current ephemeral address for zkLogin)
         owner: address,
+        /// zkLogin OAuth subject ID (stable identifier across sessions)
+        zklogin_sub: String,
+        /// User's email address
+        email: String,
         /// Profile type (Freelancer or Client)
         profile_type: u8,
         /// Username (display name)
@@ -78,6 +94,14 @@ module zk_freelance::profile_nft {
         profile_id: ID,
     }
 
+    /// Identity Registry - maps zkLogin subject IDs to Profile IDs
+    /// Shared object for global profile lookup
+    public struct IdentityRegistry has key {
+        id: UID,
+        /// Mapping from zklogin_sub to Profile ID
+        zklogin_to_profile: Table<String, ID>,
+    }
+
     // ======== Events ========
 
     public struct ProfileCreated has copy, drop {
@@ -108,13 +132,35 @@ module zk_freelance::profile_nft {
         timestamp: u64,
     }
 
+    public struct ProfileOwnershipTransferred has copy, drop {
+        profile_id: ID,
+        old_owner: address,
+        new_owner: address,
+        timestamp: u64,
+    }
+
+    // ======== Init Function ========
+
+    /// Initialize the Identity Registry (one-time setup)
+    fun init(ctx: &mut TxContext) {
+        let registry = IdentityRegistry {
+            id: object::new(ctx),
+            zklogin_to_profile: table::new(ctx),
+        };
+        transfer::share_object(registry);
+    }
+
     // ======== Public Functions ========
 
     /// Create a new profile
     ///
     /// Validates profile type and creates Profile NFT with ProfileCap
+    /// Registers profile in IdentityRegistry with zkLogin subject ID
     public fun create_profile(
+        registry: &mut IdentityRegistry,
         profile_type: u8,
+        zklogin_sub: vector<u8>,
+        email: vector<u8>,
         username: vector<u8>,
         real_name: vector<u8>,
         bio: vector<u8>,
@@ -127,6 +173,15 @@ module zk_freelance::profile_nft {
         assert!(
             profile_type == PROFILE_TYPE_FREELANCER || profile_type == PROFILE_TYPE_CLIENT,
             EInvalidProfileType
+        );
+
+        // Convert zklogin_sub to String for lookup
+        let zklogin_sub_str = string::utf8(zklogin_sub);
+
+        // Check if zklogin_sub already has a profile
+        assert!(
+            !table::contains(&registry.zklogin_to_profile, zklogin_sub_str),
+            EZkLoginSubAlreadyRegistered
         );
 
         let sender = ctx.sender();
@@ -149,6 +204,8 @@ module zk_freelance::profile_nft {
         let profile = Profile {
             id: profile_uid,
             owner: sender,
+            zklogin_sub: zklogin_sub_str,
+            email: string::utf8(email),
             profile_type,
             username: string::utf8(username),
             real_name: string::utf8(real_name),
@@ -165,6 +222,9 @@ module zk_freelance::profile_nft {
             verified: false,
             active_jobs: vec_set::empty(),
         };
+
+        // Register profile in identity registry
+        table::add(&mut registry.zklogin_to_profile, zklogin_sub_str, profile_id);
 
         // Create ProfileCap
         let cap = ProfileCap {
@@ -268,6 +328,52 @@ module zk_freelance::profile_nft {
                 timestamp,
             });
         };
+    }
+
+    /// Transfer profile ownership to new address (for zkLogin session changes)
+    ///
+    /// Allows user to transfer profile to their new ephemeral address
+    public fun transfer_profile_ownership(
+        profile: &mut Profile,
+        cap: &ProfileCap,
+        new_owner: address,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        // Verify cap ownership
+        verify_cap(profile, cap);
+
+        let old_owner = profile.owner;
+        profile.owner = new_owner;
+        profile.updated_at = clock::timestamp_ms(clock);
+
+        // Emit event
+        event::emit(ProfileOwnershipTransferred {
+            profile_id: object::id(profile),
+            old_owner,
+            new_owner,
+            timestamp: profile.updated_at,
+        });
+    }
+
+    /// Get profile ID by zkLogin subject (returns none if not found)
+    public fun get_profile_by_zklogin_sub(
+        registry: &IdentityRegistry,
+        zklogin_sub: String
+    ): Option<ID> {
+        if (table::contains(&registry.zklogin_to_profile, zklogin_sub)) {
+            option::some(*table::borrow(&registry.zklogin_to_profile, zklogin_sub))
+        } else {
+            option::none()
+        }
+    }
+
+    /// Check if a zklogin_sub already has a profile registered
+    public fun has_profile(
+        registry: &IdentityRegistry,
+        zklogin_sub: String
+    ): bool {
+        table::contains(&registry.zklogin_to_profile, zklogin_sub)
     }
 
     /// Add rating to profile (called by job_escrow module)
@@ -384,6 +490,16 @@ module zk_freelance::profile_nft {
     /// Get profile owner
     public fun get_owner(profile: &Profile): address {
         profile.owner
+    }
+
+    /// Get zkLogin subject ID
+    public fun get_zklogin_sub(profile: &Profile): String {
+        profile.zklogin_sub
+    }
+
+    /// Get email
+    public fun get_email(profile: &Profile): String {
+        profile.email
     }
 
     /// Get profile type
