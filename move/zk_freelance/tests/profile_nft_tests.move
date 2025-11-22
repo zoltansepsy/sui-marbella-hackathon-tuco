@@ -160,12 +160,30 @@ module zk_freelance::profile_nft_tests_minimal {
         ts::next_tx(&mut scenario, USER_A);
         {
             let profile = ts::take_from_sender<Profile>(&scenario);
+            assert!(profile_nft::get_owner(&profile) == USER_A, 0);
+            ts::return_to_sender(&scenario, profile);
+        };
+
+        ts::end(scenario);
+    }
+
+    #[test]
+    /// Test 5: Update single field (username)
+    fun test_update_single_field() {
+        let mut scenario = ts::begin(USER_A);
+
+        create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"oldusername");
+
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            let mut profile = ts::take_from_sender<Profile>(&scenario);
             let cap = ts::take_from_sender<ProfileCap>(&scenario);
 
             assert!(profile_nft::get_owner(&profile) == USER_A);
             assert!(profile_nft::get_zklogin_sub(&profile) == std::string::utf8(b"google_oauth_sub_12345"));
             assert!(profile_nft::get_email(&profile) == std::string::utf8(b"user@example.com"));
 
+            clock::destroy_for_testing(clock);
             ts::return_to_sender(&scenario, profile);
             ts::return_to_sender(&scenario, cap);
         };
@@ -174,7 +192,75 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 23: First rating
+    /// Test 6: Update all fields at once
+    fun test_update_all_fields() {
+        let mut scenario = ts::begin(USER_A);
+
+        create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"user1");
+
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            let mut profile = ts::take_from_sender<Profile>(&scenario);
+            let cap = ts::take_from_sender<ProfileCap>(&scenario);
+            let clock = create_clock(&mut scenario);
+
+            profile_nft::update_profile_info(
+                &mut profile,
+                &cap,
+                option::some(b"updated_user"),
+                option::some(b"Updated Name"),
+                option::some(b"Updated bio with more details"),
+                option::some(vector[b"NewSkill1", b"NewSkill2"]),
+                option::some(b"new_avatar.png"),
+                &clock,
+                ts::ctx(&mut scenario)
+            );
+
+            clock::destroy_for_testing(clock);
+            ts::return_to_sender(&scenario, profile);
+            ts::return_to_sender(&scenario, cap);
+        };
+
+        ts::end(scenario);
+    }
+
+    #[test]
+    /// Test 7: Update with all None options
+    fun test_update_with_all_none() {
+        let mut scenario = ts::begin(USER_A);
+
+        create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"user1");
+
+        ts::next_tx(&mut scenario, USER_A);
+        {
+            let mut profile = ts::take_from_sender<Profile>(&scenario);
+            let cap = ts::take_from_sender<ProfileCap>(&scenario);
+            let clock = create_clock(&mut scenario);
+
+            // Only updates timestamp, no field changes
+            profile_nft::update_profile_info(
+                &mut profile,
+                &cap,
+                option::none(),
+                option::none(),
+                option::none(),
+                option::none(),
+                option::none(),
+                &clock,
+                ts::ctx(&mut scenario)
+            );
+
+            clock::destroy_for_testing(clock);
+>>>>>>> 3e7ea23 (refactor unit tests)
+            ts::return_to_sender(&scenario, profile);
+            ts::return_to_sender(&scenario, cap);
+        };
+
+        ts::end(scenario);
+    }
+
+    #[test]
+    /// Test 8: First rating
     fun test_first_rating() {
         let mut scenario = ts::begin(USER_A);
 
@@ -198,7 +284,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 24: Second rating (average calculation)
+    /// Test 9: Second rating (average calculation)
     fun test_second_rating_average() {
         let mut scenario = ts::begin(USER_A);
 
@@ -228,7 +314,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 25: Multiple ratings convergence
+    /// Test 10: Multiple ratings convergence
     fun test_multiple_ratings() {
         let mut scenario = ts::begin(USER_A);
 
@@ -252,7 +338,11 @@ module zk_freelance::profile_nft_tests_minimal {
             // Verify 10 ratings were added
             assert!(profile_nft::get_rating_count(&profile) == 10, 0);
 
-            // Weighted average with truncation: 469 (not simple avg of 471 due to integer division)
+
+            // Average with iterative calculation: 469 (not 471 due to rounding in each step)
+            // Simple avg: (500+450+480+470+460+490+450+440+500+470)/10 = 471
+            // Iterative avg uses integer division at each step, causing slight deviation
+>>>>>>> 3e7ea23 (refactor unit tests)
             assert!(profile_nft::get_rating(&profile) == 469, 1);
 
             clock::destroy_for_testing(clock);
@@ -263,7 +353,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 26: Minimum valid rating (10)
+    /// Test 11: Minimum valid rating (10)
     fun test_minimum_valid_rating() {
         let mut scenario = ts::begin(USER_A);
 
@@ -286,7 +376,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 27: Maximum valid rating (500)
+    /// Test 12: Maximum valid rating (500)
     fun test_maximum_valid_rating() {
         let mut scenario = ts::begin(USER_A);
 
@@ -309,7 +399,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 35: First job completion
+    /// Test 13: First job completion
     fun test_first_job_completion() {
         let mut scenario = ts::begin(USER_A);
 
@@ -334,7 +424,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 36: Multiple job completions
+    /// Test 14: Multiple job completions
     fun test_multiple_job_completions() {
         let mut scenario = ts::begin(USER_A);
 
@@ -373,7 +463,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 37: Job completion with zero amount
+    /// Test 15: Job completion with zero amount
     fun test_job_completion_zero_amount() {
         let mut scenario = ts::begin(USER_A);
 
@@ -398,7 +488,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 38: Job completion removes from active jobs
+    /// Test 16: Job completion removes from active jobs
     fun test_job_completion_removes_from_active() {
         let mut scenario = ts::begin(USER_A);
 
@@ -430,7 +520,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 39: Complete job not in active jobs
+    /// Test 17: Complete job not in active jobs
     fun test_complete_job_not_in_active() {
         let mut scenario = ts::begin(USER_A);
 
@@ -455,7 +545,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 43: Add first active job
+    /// Test 18: Add first active job
     fun test_add_first_active_job() {
         let mut scenario = ts::begin(USER_A);
 
@@ -481,7 +571,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 44: Add multiple active jobs
+    /// Test 19: Add multiple active jobs
     fun test_add_multiple_active_jobs() {
         let mut scenario = ts::begin(USER_A);
 
@@ -520,7 +610,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 47: Remove existing job
+    /// Test 20: Remove existing job
     fun test_remove_existing_job() {
         let mut scenario = ts::begin(USER_A);
 
@@ -546,7 +636,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 48: Remove non-existent job
+    /// Test 21: Remove non-existent job
     fun test_remove_nonexistent_job() {
         let mut scenario = ts::begin(USER_A);
 
@@ -571,7 +661,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 49: Remove all jobs one by one
+    /// Test 22: Remove all jobs one by one
     fun test_remove_all_jobs() {
         let mut scenario = ts::begin(USER_A);
 
@@ -618,7 +708,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 67: Full user journey - Freelancer
+    /// Test 23: Full user journey - Freelancer
     fun test_full_journey_freelancer() {
         let mut scenario = ts::begin(USER_A);
 
@@ -658,7 +748,10 @@ module zk_freelance::profile_nft_tests_minimal {
             profile_nft::add_rating(&mut profile, 490, &clock);
 
             assert!(profile_nft::get_rating_count(&profile) == 5, 4);
-            // Weighted average with truncation: 477 (not simple avg of 478 due to integer division)
+
+            // Average with iterative calculation: 477
+            // Simple avg: (500+450+480+470+490)/5 = 478
+            // Iterative gives 477 due to integer division at each step
             assert!(profile_nft::get_rating(&profile) == 477, 5);
 
             // Set verification
@@ -690,7 +783,8 @@ module zk_freelance::profile_nft_tests_minimal {
 
     #[test]
     #[expected_failure(abort_code = zk_freelance::profile_nft::EInvalidProfileType)]
-    /// Test 6: Invalid profile type (too high)
+    /// Test 24: Invalid profile type (too high)
+>>>>>>> 3e7ea23 (refactor unit tests)
     fun test_invalid_profile_type_high() {
         let mut scenario = ts::begin(USER_A);
 
@@ -718,7 +812,8 @@ module zk_freelance::profile_nft_tests_minimal {
 
     #[test]
     #[expected_failure(abort_code = zk_freelance::profile_nft::EInvalidProfileType)]
-    /// Test 6b: Invalid profile type (255)
+    /// Test 25: Invalid profile type (255)
+>>>>>>> 3e7ea23 (refactor unit tests)
     fun test_invalid_profile_type_max() {
         let mut scenario = ts::begin(USER_A);
 
@@ -746,7 +841,8 @@ module zk_freelance::profile_nft_tests_minimal {
 
     #[test]
     #[expected_failure(abort_code = zk_freelance::profile_nft::ENotProfileOwner)]
-    /// Test 16: Update with wrong ProfileCap
+
+    /// Test 26: Update with wrong ProfileCap
     fun test_update_with_wrong_cap() {
         let mut scenario = ts::begin(USER_A);
 
@@ -803,7 +899,7 @@ module zk_freelance::profile_nft_tests_minimal {
 
     #[test]
     #[expected_failure(abort_code = zk_freelance::profile_nft::EInvalidRating)]
-    /// Test 28: Rating below minimum (9)
+    /// Test 27: Rating below minimum (9)
     fun test_rating_below_minimum() {
         let mut scenario = ts::begin(USER_A);
 
@@ -826,7 +922,8 @@ module zk_freelance::profile_nft_tests_minimal {
 
     #[test]
     #[expected_failure(abort_code = zk_freelance::profile_nft::EInvalidRating)]
-    /// Test 28b: Rating = 0
+
+    /// Test 28: Rating = 0
     fun test_rating_zero() {
         let mut scenario = ts::begin(USER_A);
 
@@ -871,7 +968,9 @@ module zk_freelance::profile_nft_tests_minimal {
 
     #[test]
     #[expected_failure(abort_code = zk_freelance::profile_nft::EInvalidRating)]
-    /// Test 29b: Rating = 1000
+
+    /// Test 30: Rating = 1000
+>>>>>>> 3e7ea23 (refactor unit tests)
     fun test_rating_very_high() {
         let mut scenario = ts::begin(USER_A);
 
@@ -893,7 +992,7 @@ module zk_freelance::profile_nft_tests_minimal {
 
     #[test]
     #[expected_failure]
-    /// Test 45: Add duplicate job ID (VecSet will abort)
+    /// Test 31: Add duplicate job ID (VecSet will abort)
     fun test_add_duplicate_job() {
         let mut scenario = ts::begin(USER_A);
 
@@ -921,7 +1020,7 @@ module zk_freelance::profile_nft_tests_minimal {
     // ==================== PHASE 3: EDGE CASE TESTS ====================
 
     #[test]
-    /// Test 31: Integer division truncation in ratings
+    /// Test 32: Integer division truncation in ratings
     fun test_rating_truncation() {
         let mut scenario = ts::begin(USER_A);
 
@@ -949,7 +1048,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 34: Rating average stability (no drift)
+    /// Test 33: Rating average stability (no drift)
     fun test_rating_no_drift() {
         let mut scenario = ts::begin(USER_A);
 
@@ -982,7 +1081,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 42: Very large amount in job completion
+    /// Test 34: Very large amount in job completion
     fun test_very_large_amount() {
         let mut scenario = ts::begin(USER_A);
 
@@ -1009,32 +1108,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test 50: Remove job that was never added (edge case)
-    fun test_remove_never_added() {
-        let mut scenario = ts::begin(USER_A);
-
-        create_profile_helper(&mut scenario, USER_A, PROFILE_TYPE_FREELANCER, b"freelancer");
-
-        ts::next_tx(&mut scenario, USER_A);
-        {
-            let mut profile = ts::take_from_sender<Profile>(&scenario);
-            let clock = create_clock(&mut scenario);
-            let job_id = object::id_from_address(@0xFAFAFA);
-
-            // Try removing from empty active_jobs (should succeed silently)
-            profile_nft::remove_active_job(&mut profile, job_id, &clock);
-
-            assert!(profile_nft::get_active_jobs_count(&profile) == 0, 0);
-
-            clock::destroy_for_testing(clock);
-            ts::return_to_sender(&scenario, profile);
-        };
-
-        ts::end(scenario);
-    }
-
-    #[test]
-    /// Test 80: VecSet behavior - remove and re-add same job
+    /// Test 35: VecSet behavior - remove and re-add same job
     fun test_vecset_remove_and_readd() {
         let mut scenario = ts::begin(USER_A);
 
@@ -1068,7 +1142,7 @@ module zk_freelance::profile_nft_tests_minimal {
     }
 
     #[test]
-    /// Test verification toggle
+    /// Test 36: Verification toggle
     fun test_verification_toggle() {
         let mut scenario = ts::begin(USER_A);
 
