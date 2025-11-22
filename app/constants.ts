@@ -1,21 +1,14 @@
-// ======== Example Contracts ========
+//Keep whitelist
 
-export const DEVNET_COUNTER_PACKAGE_ID = "0xbce15267365bebfd0267e4789406ec89ba7901e687301da0d3fdb6d3e5be81fb";
-export const TESTNET_COUNTER_PACKAGE_ID = "0xTODO_AFTER_DEPLOY";
-export const MAINNET_COUNTER_PACKAGE_ID = "0xTODO";
-
-export const DEVNET_WHITELIST_PACKAGE_ID = "0xbce15267365bebfd0267e4789406ec89ba7901e687301da0d3fdb6d3e5be81fb";
+export const DEVNET_WHITELIST_PACKAGE_ID = "0xda209d1512a8c32cb09914736768f2405dd093163bb6802475c4cc3e64366558";
 export const TESTNET_WHITELIST_PACKAGE_ID = "0xTODO_AFTER_DEPLOY";
 export const MAINNET_WHITELIST_PACKAGE_ID = "0xTODO";
-
-// ======== Freelance Platform Contracts ========
-// NOTE: Update these after deploying the contracts!
 
 /**
  * Job Escrow Package IDs
  * Deploy with: cd move/zk_freelance && sui client publish --gas-budget 100000000 .
  */
-export const DEVNET_JOB_ESCROW_PACKAGE_ID = "0xbce15267365bebfd0267e4789406ec89ba7901e687301da0d3fdb6d3e5be81fb";
+export const DEVNET_JOB_ESCROW_PACKAGE_ID = "0xda209d1512a8c32cb09914736768f2405dd093163bb6802475c4cc3e64366558";
 export const TESTNET_JOB_ESCROW_PACKAGE_ID = "0xTODO_AFTER_DEPLOY";
 export const MAINNET_JOB_ESCROW_PACKAGE_ID = "0xTODO";
 
@@ -23,7 +16,7 @@ export const MAINNET_JOB_ESCROW_PACKAGE_ID = "0xTODO";
  * Profile NFT Package IDs
  * Uses same package as job_escrow (part of zk_freelance package)
  */
-export const DEVNET_PROFILE_NFT_PACKAGE_ID = "0xbce15267365bebfd0267e4789406ec89ba7901e687301da0d3fdb6d3e5be81fb";
+export const DEVNET_PROFILE_NFT_PACKAGE_ID = "0xda209d1512a8c32cb09914736768f2405dd093163bb6802475c4cc3e64366558";
 export const TESTNET_PROFILE_NFT_PACKAGE_ID = "0xTODO_AFTER_DEPLOY";
 export const MAINNET_PROFILE_NFT_PACKAGE_ID = "0xTODO";
 
@@ -31,7 +24,7 @@ export const MAINNET_PROFILE_NFT_PACKAGE_ID = "0xTODO";
  * Reputation Package IDs
  * Uses same package as job_escrow (part of zk_freelance package)
  */
-export const DEVNET_REPUTATION_PACKAGE_ID = "0xbce15267365bebfd0267e4789406ec89ba7901e687301da0d3fdb6d3e5be81fb";
+export const DEVNET_REPUTATION_PACKAGE_ID = "0xda209d1512a8c32cb09914736768f2405dd093163bb6802475c4cc3e64366558";
 export const TESTNET_REPUTATION_PACKAGE_ID = "0xTODO_AFTER_DEPLOY";
 export const MAINNET_REPUTATION_PACKAGE_ID = "0xTODO";
 
@@ -43,7 +36,7 @@ export const MAINNET_REPUTATION_PACKAGE_ID = "0xTODO";
  * IMPORTANT: After deployment, find the IdentityRegistry object ID from deployment output
  * Look for: "Created Objects" -> type ending in "::profile_nft::IdentityRegistry"
  */
-export const DEVNET_IDENTITY_REGISTRY_ID = "0xda209d1512a8c32cb09914736768f2405dd093163bb6802475c4cc3e64366558";
+export const DEVNET_IDENTITY_REGISTRY_ID = "0x8836a1f8d04d43c164cb9bfcd13e295790f52b4e49beb2b3415de3e58d173d2d";
 export const TESTNET_IDENTITY_REGISTRY_ID = "0xTODO_AFTER_DEPLOY";
 export const MAINNET_IDENTITY_REGISTRY_ID = "0xTODO";
 

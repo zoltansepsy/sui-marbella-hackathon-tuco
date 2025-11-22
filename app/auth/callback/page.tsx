@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSuiClient } from "@mysten/dapp-kit";
 import { AuthService } from "@/services/authService";
 import { createProfileService } from "@/services/profileService";
-import { DEVNET_PROFILE_NFT_PACKAGE_ID } from "@/constants";
+import { DEVNET_PROFILE_NFT_PACKAGE_ID, DEVNET_IDENTITY_REGISTRY_ID } from "@/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -52,13 +52,26 @@ export default function CallbackPage() {
         setStatus("checking_profile");
         setMessage("Checking if profile exists...");
 
-        // Check if profile already exists
+        // Check if profile already exists by checking IdentityRegistry
         const profileService = createProfileService(
           suiClient,
           DEVNET_PROFILE_NFT_PACKAGE_ID
         );
 
-        const existingProfile = await profileService.getProfileByOwner(address);
+        // First check IdentityRegistry (authoritative source for zkLogin profiles)
+        const profileIdFromRegistry = await profileService.getProfileIdByZkLoginSub(
+          DEVNET_IDENTITY_REGISTRY_ID,
+          zkloginSub
+        );
+
+        let existingProfile = null;
+        if (profileIdFromRegistry) {
+          // Profile exists in registry, fetch full profile data
+          existingProfile = await profileService.getProfile(profileIdFromRegistry);
+        } else {
+          // Fallback: check by owner address (in case registry lookup fails)
+          existingProfile = await profileService.getProfileByOwner(address);
+        }
 
         if (existingProfile) {
           // Profile exists, redirect to home

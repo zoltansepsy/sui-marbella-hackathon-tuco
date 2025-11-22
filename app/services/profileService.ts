@@ -264,17 +264,39 @@ export class ProfileService {
       }
 
       const fields = registry.data.content.fields as any;
-      const zkloginToProfile = fields.zklogin_to_profile;
+      const tableField = fields.zklogin_to_profile;
 
-      // The table is stored as a dynamic field
-      // We need to query the dynamic field for the zklogin_sub key
-      // For now, we'll return null and implement full lookup later
-      // TODO: Implement dynamic field lookup for Table<String, ID>
+      if (!tableField || !tableField.fields || !tableField.fields.id) {
+        console.error("Invalid table structure in IdentityRegistry");
+        return null;
+      }
 
-      console.log("Registry fields:", fields);
-      console.log(
-        "Note: Full zkLogin lookup requires dynamic field query implementation"
-      );
+      const tableId = tableField.fields.id.id;
+
+      // Query the dynamic field for this zkLogin sub
+      // Dynamic field name for Table<String, ID> is the key itself (zkloginSub)
+      try {
+        const dynamicField = await this.suiClient.getDynamicFieldObject({
+          parentId: tableId,
+          name: {
+            type: "0x1::string::String",
+            value: zkloginSub,
+          },
+        });
+
+        if (dynamicField.data?.content?.dataType === "moveObject") {
+          const dfFields = dynamicField.data.content.fields as any;
+          // The value field contains the Profile ID
+          return dfFields.value || null;
+        }
+      } catch (dfError: any) {
+        // Dynamic field not found means profile doesn't exist
+        if (dfError.message?.includes("not found") || dfError.code === -32602) {
+          console.log("No profile found for zkLogin sub:", zkloginSub);
+          return null;
+        }
+        throw dfError;
+      }
 
       return null;
     } catch (error) {
