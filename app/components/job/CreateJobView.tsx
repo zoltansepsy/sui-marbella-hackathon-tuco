@@ -796,7 +796,7 @@ export function CreateJobView({ onBack, onSuccess }: CreateJobViewProps) {
                 <CardContent className="space-y-4">
                   <div>
                     <h4 className="font-semibold mb-2">Description</h4>
-                    <p className="text-sm whitespace-pre-wrap bg-gray-50 p-4 rounded">
+                    <p className="text-sm text-gray-900 whitespace-pre-wrap bg-gray-50 p-4 rounded">
                       {formData.description}
                     </p>
                   </div>

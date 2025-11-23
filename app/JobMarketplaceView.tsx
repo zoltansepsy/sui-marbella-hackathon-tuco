@@ -410,11 +410,6 @@ export function JobMarketplaceView({ onBack }: JobMarketplaceViewProps) {
           </CardContent>
         </Card>
       )}
-
-      {/* Auto-refresh indicator */}
-      <div className="mt-8 text-center text-xs text-muted-foreground">
-        Jobs auto-refresh every 30 seconds • Scroll down to load more
-      </div>
     </div>
     </>
   );
