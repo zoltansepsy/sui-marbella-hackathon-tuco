@@ -319,6 +319,27 @@ export class JobService {
 
       // Return mock data matching getJobsByFreelancer() mock IDs AND getJobsByClient() mock IDs
       const mockJobs: Record<string, JobData> = {
+        // Client Portfolio Mock Jobs - OPEN job with applicants (for testing assign flow)
+        "0xaaaa000000000000000000000000000000000000000000000000000000000000": {
+          objectId: "0xaaaa000000000000000000000000000000000000000000000000000000000000",
+          client: "0xDYNAMIC_CLIENT",
+          freelancer: undefined,
+          title: "🚀 Build E-Commerce Website (DEMO - OPEN)",
+          descriptionBlobId: "dummy-job-ecommerce-website",
+          budget: 20_000_000_000, // 20 SUI
+          state: JobState.OPEN,
+          milestones: [],
+          milestoneCount: 5,
+          applicants: [
+            "0xapplicant1111111111111111111111111111111111111111111111111111111",
+            "0xapplicant2222222222222222222222222222222222222222222222222222222",
+            "0xapplicant3333333333333333333333333333333333333333333333333333333",
+            "0xapplicant4444444444444444444444444444444444444444444444444444444",
+          ],
+          createdAt: now - 12 * 3600_000, // 12 hours ago
+          deadline: now + 14 * 24 * 3600_000, // 14 days from now
+          deliverableBlobIds: [],
+        },
         // Freelancer Portfolio Mock Jobs (from My Portfolio)
         "0x1111111111111111111111111111111111111111111111111111111111111111": {
           objectId: "0x1111111111111111111111111111111111111111111111111111111111111111",
@@ -565,15 +586,50 @@ export class JobService {
       }
 
       // ============================================================================
-      // MOCK DATA: Add supplemental mock jobs for demo purposes
+      // MOCK DATA: Add mock applicants to OPEN jobs AND add supplemental mock jobs
       // ============================================================================
       const ADD_MOCK_JOBS = true; // Toggle to false to show only real blockchain data
 
       if (ADD_MOCK_JOBS) {
+        console.log(`🎭 MOCK: Adding mock applicants to OPEN jobs`);
+
+        // Add mock applicants to any OPEN jobs (real blockchain jobs)
+        jobs.forEach(job => {
+          if (job.state === JobState.OPEN && job.applicants.length === 0) {
+            job.applicants = [
+              "0xapplicant1111111111111111111111111111111111111111111111111111111",
+              "0xapplicant2222222222222222222222222222222222222222222222222222222",
+              "0xapplicant3333333333333333333333333333333333333333333333333333333",
+            ];
+            console.log(`🎭 MOCK: Added 3 applicants to OPEN job ${job.objectId.slice(0, 8)}...`);
+          }
+        });
+
         console.log(`🎭 MOCK: Adding supplemental demo jobs to client portfolio`);
 
         const now = Date.now();
         const mockJobs: JobData[] = [
+          // OPEN job with applicants - Ready to assign
+          {
+            objectId: "0xaaaa000000000000000000000000000000000000000000000000000000000000",
+            client: clientAddress, // Use actual client address
+            freelancer: undefined,
+            title: "🚀 Build E-Commerce Website (DEMO - OPEN)",
+            descriptionBlobId: "dummy-job-ecommerce-website",
+            budget: 20_000_000_000, // 20 SUI
+            state: JobState.OPEN,
+            milestones: [],
+            milestoneCount: 5,
+            applicants: [
+              "0xapplicant1111111111111111111111111111111111111111111111111111111",
+              "0xapplicant2222222222222222222222222222222222222222222222222222222",
+              "0xapplicant3333333333333333333333333333333333333333333333333333333",
+              "0xapplicant4444444444444444444444444444444444444444444444444444444",
+            ],
+            createdAt: now - 12 * 3600_000, // 12 hours ago
+            deadline: now + 14 * 24 * 3600_000, // 14 days from now
+            deliverableBlobIds: [],
+          },
           // ACTIVE job - In Progress
           {
             objectId: "0xaaaa000000000000000000000000000000000000000000000000000000000001",

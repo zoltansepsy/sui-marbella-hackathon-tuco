@@ -44,6 +44,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
+import { Transaction } from "@mysten/sui/transactions";
 import { useNetworkVariable } from "../../networkConfig";
 import {
   formatSUI,
@@ -66,7 +67,7 @@ export function ClientJobDetailView({ jobId, onBack }: ClientJobDetailViewProps)
   const { mutate: signAndExecute } = useSignAndExecuteTransaction();
 
   const { job, isPending, error, refetch } = useJob(jobId);
-  const { profile: clientProfile, isLoading: profileLoading } = useCurrentProfile();
+  const { profile: clientProfile, isPending: profileLoading } = useCurrentProfile();
 
   // State for actions
   const [assigningFreelancer, setAssigningFreelancer] = useState(false);
@@ -120,9 +121,14 @@ export function ClientJobDetailView({ jobId, onBack }: ClientJobDetailViewProps)
     return job.client === currentAccount.address;
   }, [job, currentAccount]);
 
+  // Check if this is a mock job (for enabling demo features)
+  const isMockJob = useMemo(() => {
+    return job?.client === "0xDYNAMIC_CLIENT" || (!clientProfile && !jobCapId);
+  }, [job, clientProfile, jobCapId]);
+
   // Handle freelancer assignment
   const handleAssignFreelancer = async (freelancerAddress: string) => {
-    if (!job || !currentAccount || !clientProfile || !jobCapId) {
+    if (!job || !currentAccount) {
       setActionError("Missing required data for assignment");
       return;
     }
@@ -132,10 +138,48 @@ export function ClientJobDetailView({ jobId, onBack }: ClientJobDetailViewProps)
     setActionSuccess(null);
 
     try {
-      // TODO: Get freelancer profile ID
-      // For now, we'll need to fetch the freelancer's profile
-      // This is a placeholder - need to implement getProfileByOwner in service
-      const freelancerProfileId = "0x0"; // Placeholder
+      // MOCK DATA: For demo purposes, create a fake transaction if we don't have real data
+      if (isMockJob) {
+        console.log("🎭 MOCK: Creating fake transaction for demo purposes");
+
+        // Create a simple fake transaction (transfer 0 SUI to self to trigger wallet)
+        const tx = new Transaction();
+        tx.transferObjects(
+          [tx.splitCoins(tx.gas, [0])],
+          currentAccount.address
+        );
+
+        signAndExecute(
+          { transaction: tx },
+          {
+            onSuccess: async ({ digest }) => {
+              console.log("🎭 MOCK: Fake transaction successful:", digest);
+              setAssigningFreelancer(false);
+              setActionSuccess("Freelancer assigned successfully! (Demo Mode)");
+              setShowAssignDialog(false);
+
+              setTimeout(() => {
+                setActionSuccess(null);
+              }, 3000);
+            },
+            onError: (error) => {
+              console.error("Mock transaction rejected:", error);
+              setActionError("Transaction cancelled");
+              setAssigningFreelancer(false);
+            },
+          }
+        );
+        return;
+      }
+
+      // Real transaction for actual blockchain jobs
+      if (!jobCapId) {
+        setActionError("Missing JobCap - cannot assign freelancer");
+        setAssigningFreelancer(false);
+        return;
+      }
+
+      const freelancerProfileId = "0x0"; // Placeholder - TODO: Get real freelancer profile
 
       const tx = jobService.assignFreelancerTransaction(
         jobId,
@@ -453,8 +497,8 @@ export function ClientJobDetailView({ jobId, onBack }: ClientJobDetailViewProps)
                         setSelectedFreelancer(applicant);
                         setShowAssignDialog(true);
                       }}
-                      className="bg-blue-600 hover:bg-blue-700"
-                      disabled={loadingJobCap || !jobCapId}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      disabled={loadingJobCap && !isMockJob}
                     >
                       <UserCheck className="h-4 w-4 mr-1" />
                       Assign
