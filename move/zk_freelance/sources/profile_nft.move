@@ -103,6 +103,13 @@ module zk_freelance::profile_nft {
         zklogin_to_profile: Table<String, ID>,
     }
 
+    /// Job profile update capability - allows job_escrow contract to update profile stats
+    /// This capability is given to the job_escrow contract when freelancer applies
+    public struct JobProfileUpdateCap has key, store {
+        id: UID,
+        profile_id: ID,
+    }
+
     // ======== Events ========
 
     public struct ProfileCreated has copy, drop {
@@ -344,6 +351,22 @@ module zk_freelance::profile_nft {
         table::contains(&registry.zklogin_to_profile, zklogin_sub)
     }
 
+    /// Create a JobProfileUpdateCap for a profile
+    /// This is called by the freelancer when applying to a job
+    /// The capability is then transferred to the job_escrow contract
+    public fun create_job_profile_update_cap(
+        profile: &Profile,
+        ctx: &mut TxContext
+    ): JobProfileUpdateCap {
+        // Verify caller owns the profile
+        assert!(ctx.sender() == profile.owner, ENotProfileOwner);
+
+        JobProfileUpdateCap {
+            id: object::new(ctx),
+            profile_id: object::id(profile),
+        }
+    }
+
     /// Add rating to profile (called by job_escrow module)
     ///
     /// Validates rating and updates profile's average rating
@@ -405,14 +428,13 @@ module zk_freelance::profile_nft {
 
     /// Add job to active jobs (called when job assigned/created)
     ///
-    /// Adds job to active jobs set and increments total jobs
+    /// Adds job to active jobs set (total_jobs incremented separately via capability)
     public fun add_active_job(
         profile: &mut Profile,
         job_id: ID,
         clock: &Clock,
     ) {
         vec_set::insert(&mut profile.active_jobs, job_id);
-        profile.total_jobs = profile.total_jobs + 1;
         profile.updated_at = clock::timestamp_ms(clock);
     }
 
@@ -503,6 +525,37 @@ module zk_freelance::profile_nft {
     /// Get total jobs
     public fun get_total_jobs(profile: &Profile): u64 {
         profile.total_jobs
+    }
+
+    /// Increment total jobs counter (called by job_escrow with JobProfileUpdateCap)
+    ///
+    /// Validates capability and increments the total jobs counter
+    public fun increment_total_jobs(
+        profile: &mut Profile,
+        cap: &JobProfileUpdateCap,
+        clock: &Clock
+    ) {
+        // Verify cap matches profile
+        assert!(object::id(profile) == cap.profile_id, ENotProfileOwner);
+
+        profile.total_jobs = profile.total_jobs + 1;
+        profile.updated_at = clock::timestamp_ms(clock);
+    }
+
+    /// Increment own total jobs counter (for self-updates without capability)
+    ///
+    /// Used when a profile owner updates their own stats (e.g., client creating a job)
+    /// Validates the caller owns the profile via context
+    public fun increment_own_total_jobs(
+        profile: &mut Profile,
+        clock: &Clock,
+        ctx: &TxContext
+    ) {
+        // Verify caller owns the profile
+        assert!(ctx.sender() == profile.owner, ENotProfileOwner);
+
+        profile.total_jobs = profile.total_jobs + 1;
+        profile.updated_at = clock::timestamp_ms(clock);
     }
 
     /// Get total amount
