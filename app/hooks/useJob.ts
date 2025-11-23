@@ -37,8 +37,8 @@ export function useJob(jobId: string | undefined) {
     queryKey: ["job", jobId],
     queryFn: () => jobService.getJob(jobId!),
     enabled: !!jobId,
-    staleTime: 10000, // Consider data fresh for 10 seconds
-    refetchInterval: 30000, // Refetch every 30 seconds for live updates
+    staleTime: 0, // REDUCED: Always fetch fresh data to show current state immediately
+    refetchInterval: 10000, // INCREASED: Refetch every 10 seconds (reduced from 30s)
   });
 
   return {
@@ -69,8 +69,8 @@ export function useJobsByClient(clientAddress: string | undefined) {
     queryKey: ["jobs", "client", clientAddress],
     queryFn: () => jobService.getJobsByClient(clientAddress!),
     enabled: !!clientAddress,
-    staleTime: 10000,
-    refetchInterval: 30000,
+    staleTime: 0, // Always fetch fresh data
+    refetchInterval: 10000, // Refresh every 10 seconds
   });
 
   return {
@@ -101,8 +101,8 @@ export function useJobsByFreelancer(freelancerAddress: string | undefined) {
     queryKey: ["jobs", "freelancer", freelancerAddress],
     queryFn: () => jobService.getJobsByFreelancer(freelancerAddress!),
     enabled: !!freelancerAddress,
-    staleTime: 10000,
-    refetchInterval: 30000,
+    staleTime: 0, // Always fetch fresh data
+    refetchInterval: 10000, // Refresh every 10 seconds
   });
 
   return {
@@ -132,8 +132,8 @@ export function useOpenJobs(limit: number = 50) {
   const { data, isPending, error, refetch } = useQuery({
     queryKey: ["jobs", "open", limit],
     queryFn: () => jobService.getOpenJobs(limit),
-    staleTime: 10000,
-    refetchInterval: 30000, // Auto-refresh marketplace every 30 seconds
+    staleTime: 0, // REDUCED: Always fetch fresh data to catch state changes immediately
+    refetchInterval: 10000, // INCREASED: Auto-refresh marketplace every 10 seconds (reduced from 30s)
   });
 
   return {

@@ -9,14 +9,23 @@ import { WalrusUpload } from "./WalrusUpload";
 import { SealWhitelist } from "./SealWhitelist";
 import { Resources } from "./Resources";
 import { MyJobsView } from "./components/job/MyJobsView";
+import { MyPortfolioView } from "./components/job/MyPortfolioView";
+import { JobMarketplaceView } from "./JobMarketplaceView";
+import { CreateJobView } from "./components/job/CreateJobView";
+import { ClientJobDetailView } from "./components/job/ClientJobDetailView";
+import { ProfileView } from "./components/profile/ProfileView";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useView } from "./contexts/ViewContext";
+import { useCurrentProfile } from "./hooks/useProfile";
+import { ProfileType } from "./services/types";
 
 export default function Home() {
   const currentAccount = useCurrentAccount();
   const [counterId, setCounter] = useState<string | null>(null);
-  const { view, setView } = useView();
+  const { view, setView, selectedJobId, setSelectedJobId } = useView();
+  const { profile } = useCurrentProfile();
+
 
   useEffect(() => {
     const hash = window.location.hash.slice(1);
@@ -78,7 +87,7 @@ export default function Home() {
                       {/* Welcome Section */}
                       <div className="text-center py-8">
                         <h1 className="text-4xl font-bold mb-4">
-                          TaskinPool
+                          Gignova
                         </h1>
                         <p className="text-lg text-muted-foreground mb-8">
                           Secure freelance work with encrypted deliverables and escrow payments
@@ -111,6 +120,7 @@ export default function Home() {
                           </Button>
                         </Card>
 
+                        
                         <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setView("myJobs")}>
                           <h3 className="text-2xl font-semibold mb-3">
                             My Posted Jobs
@@ -122,64 +132,41 @@ export default function Home() {
                             View My Posted Jobs
                           </Button>
                         </Card>
+                        
 
-                        <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setView("profile")}>
+                        <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setView("myPortfolio")}>
                           <h3 className="text-2xl font-semibold mb-3">
-                            Profile
+                            My Portfolio
                           </h3>
                           <p className="text-muted-foreground mb-4">
-                            View and edit your profile, reputation, and badges
+                            Track your assigned jobs and work progress
                           </p>
-                          <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">
-                            View Profile
+                          <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white">
+                            View My Portfolio
                           </Button>
                         </Card>
-                      </div>
-
-                      {/* Demo Features Section */}
-                      <div className="mt-12 pt-8 border-t">
-                        <h3 className="text-lg font-semibold mb-4">Demo Features</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <Card className="p-4">
-                            <h4 className="text-md font-semibold mb-2">Counter</h4>
-                            <div className="flex flex-col gap-2">
-                              <Button onClick={() => setView("createCounter")} variant="outline" size="sm">
-                                Create Counter
-                              </Button>
-                              <Button onClick={() => setView("search")} variant="outline" size="sm">
-                                Find Counter
-                              </Button>
-                            </div>
-                          </Card>
-                          <Card className="p-4">
-                            <h4 className="text-md font-semibold mb-2">Walrus Storage</h4>
-                            <Button onClick={() => setView("walrus")} variant="outline" size="sm" className="w-full">
-                              Upload Files
-                            </Button>
-                          </Card>
-                          <Card className="p-4">
-                            <h4 className="text-md font-semibold mb-2">Seal Encryption</h4>
-                            <Button onClick={() => setView("seal")} variant="outline" size="sm" className="w-full">
-                              Seal Whitelist
-                            </Button>
-                          </Card>
-                        </div>
+                        
                       </div>
                     </div>
                   )}
 
                   {/* Freelance Platform Views */}
                   {view === "marketplace" && (
-                    <div className="text-center py-12">
-                      <h2 className="text-2xl font-bold mb-4">Job Marketplace</h2>
-                      <p className="text-muted-foreground mb-4">Browse open freelance jobs (Coming Soon)</p>
-                      <p className="text-sm text-muted-foreground">DEV 3: Implement JobMarketplaceView component</p>
-                      <Button onClick={() => setView("home")} className="mt-4">Back to Home</Button>
-                    </div>
+                    <JobMarketplaceView onBack={() => setView("home")} />
                   )}
 
                   {view === "myJobs" && (
                     <MyJobsView
+                      onBack={() => setView("home")}
+                      onViewJob={(jobId) => {
+                        setSelectedJobId?.(jobId);
+                        setView("jobDetail");
+                      }}
+                    />
+                  )}
+
+                  {view === "myPortfolio" && (
+                    <MyPortfolioView
                       onBack={() => setView("home")}
                       onViewJob={(jobId) => {
                         // TODO: Navigate to job detail view
@@ -190,30 +177,33 @@ export default function Home() {
                   )}
 
                   {view === "createJob" && (
-                    <div className="text-center py-12">
-                      <h2 className="text-2xl font-bold mb-4">Create Job</h2>
-                      <p className="text-muted-foreground mb-4">Post a new job (Coming Soon)</p>
-                      <p className="text-sm text-muted-foreground">DEV 3: Implement CreateJobView component</p>
-                      <Button onClick={() => setView("home")} className="mt-4">Back to Home</Button>
-                    </div>
+                    <CreateJobView
+                      onBack={() => setView("home")}
+                      onSuccess={(jobId) => {
+                        console.log("Job created:", jobId);
+                        setView("marketplace");
+                      }}
+                    />
                   )}
 
                   {view === "profile" && (
-                    <div className="text-center py-12">
-                      <h2 className="text-2xl font-bold mb-4">Profile</h2>
-                      <p className="text-muted-foreground mb-4">View and edit your profile (Coming Soon)</p>
-                      <p className="text-sm text-muted-foreground">DEV 3: Implement ProfileView component</p>
-                      <Button onClick={() => setView("home")} className="mt-4">Back to Home</Button>
-                    </div>
+                    <ProfileView
+                      onBack={() => setView("home")}
+                      onCreateProfile={() => {
+                        // TODO: Navigate to profile creation
+                        console.log("Create profile");
+                      }}
+                    />
                   )}
 
-                  {view === "jobDetail" && (
-                    <div className="text-center py-12">
-                      <h2 className="text-2xl font-bold mb-4">Job Details</h2>
-                      <p className="text-muted-foreground mb-4">View job details (Coming Soon)</p>
-                      <p className="text-sm text-muted-foreground">DEV 3: Implement JobDetailView component</p>
-                      <Button onClick={() => setView("marketplace")} className="mt-4">Back to Marketplace</Button>
-                    </div>
+                  {view === "jobDetail" && selectedJobId && (
+                    <ClientJobDetailView
+                      jobId={selectedJobId}
+                      onBack={() => {
+                        setSelectedJobId?.("");
+                        setView("myJobs");
+                      }}
+                    />
                   )}
 
                   {view === "createCounter" && (
@@ -236,7 +226,7 @@ export default function Home() {
                 ) : (
                   <div className="text-center py-12">
                     <h2 className="text-xl font-semibold mb-2">
-                      Welcome to TaskinPool
+                      Welcome to Gignova
                     </h2>
                     <p className="text-muted-foreground mb-4">
                       Please connect your wallet to get started
@@ -251,7 +241,7 @@ export default function Home() {
             )}
           </CardContent>
         </Card>
-      </div>
+        </div>
     </div>
   );
 }

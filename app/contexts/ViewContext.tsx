@@ -7,6 +7,7 @@ type ViewType =
   | 'home'
   | 'marketplace'
   | 'myJobs'
+  | 'myPortfolio'
   | 'jobDetail'
   | 'createJob'
   | 'profile'

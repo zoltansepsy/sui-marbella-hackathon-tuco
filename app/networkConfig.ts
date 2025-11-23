@@ -1,8 +1,5 @@
 import { getFullnodeUrl } from "@mysten/sui/client";
 import {
-  DEVNET_COUNTER_PACKAGE_ID,
-  TESTNET_COUNTER_PACKAGE_ID,
-  MAINNET_COUNTER_PACKAGE_ID,
   DEVNET_JOB_ESCROW_PACKAGE_ID,
   TESTNET_JOB_ESCROW_PACKAGE_ID,
   MAINNET_JOB_ESCROW_PACKAGE_ID,
@@ -20,7 +17,6 @@ const { networkConfig, useNetworkVariable, useNetworkVariables } =
     devnet: {
       url: getFullnodeUrl("devnet"),
       variables: {
-        counterPackageId: DEVNET_COUNTER_PACKAGE_ID,
         jobEscrowPackageId: DEVNET_JOB_ESCROW_PACKAGE_ID,
         profileNftPackageId: DEVNET_PROFILE_NFT_PACKAGE_ID,
         reputationPackageId: DEVNET_REPUTATION_PACKAGE_ID,
@@ -29,7 +25,6 @@ const { networkConfig, useNetworkVariable, useNetworkVariables } =
     testnet: {
       url: getFullnodeUrl("testnet"),
       variables: {
-        counterPackageId: TESTNET_COUNTER_PACKAGE_ID,
         jobEscrowPackageId: TESTNET_JOB_ESCROW_PACKAGE_ID,
         profileNftPackageId: TESTNET_PROFILE_NFT_PACKAGE_ID,
         reputationPackageId: TESTNET_REPUTATION_PACKAGE_ID,
@@ -38,7 +33,6 @@ const { networkConfig, useNetworkVariable, useNetworkVariables } =
     mainnet: {
       url: getFullnodeUrl("mainnet"),
       variables: {
-        counterPackageId: MAINNET_COUNTER_PACKAGE_ID,
         jobEscrowPackageId: MAINNET_JOB_ESCROW_PACKAGE_ID,
         profileNftPackageId: MAINNET_PROFILE_NFT_PACKAGE_ID,
         reputationPackageId: MAINNET_REPUTATION_PACKAGE_ID,

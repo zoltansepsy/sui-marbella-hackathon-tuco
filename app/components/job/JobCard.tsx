@@ -21,34 +21,51 @@ import { type JobData, JobState } from "../../services";
 interface JobCardProps {
   job: JobData;
   onClick?: () => void;
+  currentUserAddress?: string; // Optional: to show "APPLIED" badge
 }
 
-export function JobCard({ job, onClick }: JobCardProps) {
-  // TODO: Implement formatting helpers
+export function JobCard({ job, onClick, currentUserAddress }: JobCardProps) {
+  // Check if current user has applied
+  const hasApplied = currentUserAddress && job.applicants.includes(currentUserAddress);
+
+  // Debug: Log job state
+  console.log(`🃏 JobCard: ${job.title.slice(0, 20)}... state=${JobState[job.state]} (${job.state})`);
+
+  // Format helpers
   const formatBudget = (amount: number) => {
     return `${(amount / 1_000_000_000).toFixed(2)} SUI`;
   };
 
-  const formatDeadline = (timestamp: number) => {
+  const formatDeadlineDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString();
   };
 
-  const getStateBadgeVariant = (state: JobState): "default" | "success" | "warning" | "info" | "secondary" | "destructive" => {
+  // Get state badge with "APPLIED" status if user has applied
+  const getStateBadge = (state: JobState, hasApplied: boolean) => {
+    // Special case: If job is OPEN but user has applied, show "APPLIED"
+    if (state === JobState.OPEN && hasApplied) {
+      return {
+        variant: "default" as const,
+        label: "APPLIED"
+      };
+    }
+
+    // Normal state badges
     switch (state) {
       case JobState.OPEN:
       case JobState.ASSIGNED:
-        return "success";
+        return { variant: "success" as const, label: JobState[state] };
       case JobState.IN_PROGRESS:
       case JobState.SUBMITTED:
       case JobState.AWAITING_REVIEW:
-        return "info";
+        return { variant: "info" as const, label: JobState[state] };
       case JobState.COMPLETED:
-        return "secondary";
+        return { variant: "secondary" as const, label: JobState[state] };
       case JobState.CANCELLED:
       case JobState.DISPUTED:
-        return "destructive";
+        return { variant: "destructive" as const, label: JobState[state] };
       default:
-        return "default";
+        return { variant: "default" as const, label: JobState[state] };
     }
   };
 
@@ -57,9 +74,14 @@ export function JobCard({ job, onClick }: JobCardProps) {
       <CardHeader>
         <div className="flex justify-between items-start">
           <CardTitle className="text-lg">{job.title}</CardTitle>
-          <Badge variant={getStateBadgeVariant(job.state)}>
-            {JobState[job.state]}
-          </Badge>
+          {(() => {
+            const badge = getStateBadge(job.state, !!hasApplied);
+            return (
+              <Badge variant={badge.variant}>
+                {badge.label}
+              </Badge>
+            );
+          })()}
         </div>
         <CardDescription>
           Posted by: {job.client.slice(0, 6)}...{job.client.slice(-4)}
@@ -73,7 +95,7 @@ export function JobCard({ job, onClick }: JobCardProps) {
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Deadline:</span>
-            <span>{formatDeadline(job.deadline)}</span>
+            <span>{formatDeadlineDate(job.deadline)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Milestones:</span>

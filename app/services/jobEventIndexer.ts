@@ -77,6 +77,7 @@ export interface JobEventData {
   milestoneCount: number;
   state: JobState;
   freelancer?: string;
+  applicants?: string[]; // Added for marketplace "APPLIED" badge
   timestamp: number;
 }
 
@@ -154,18 +155,33 @@ export class JobEventIndexer {
     limit: number = 50
   ): Promise<JobEventData[]> {
     try {
+      console.log(`🔍 My Posted Jobs: Querying JobCreated events for client ${clientAddress.slice(0, 8)}...`);
+
+      // Fetch all JobCreated events (cannot filter by Sender reliably)
       const events = await this.suiClient.queryEvents({
         query: {
           MoveEventType: `${this.packageId}::job_escrow::JobCreated`,
-          Sender: clientAddress, // Filter by transaction sender
         },
-        limit,
+        limit: limit * 3, // Fetch more to account for filtering
         order: "descending",
       });
 
-      return events.data.map((event) => this.parseJobCreatedEvent(event));
+      console.log(`📋 My Posted Jobs: Found ${events.data.length} JobCreated events (before filtering)`);
+
+      // Parse and filter by client address in event data
+      const allJobs = events.data.map((event) => this.parseJobCreatedEvent(event));
+      const clientJobs = allJobs.filter(job => job.client === clientAddress);
+
+      console.log(`✅ My Posted Jobs: Returning ${clientJobs.length} jobs for client:`, clientJobs.map(j => ({
+        jobId: j.jobId.slice(0, 8),
+        title: j.title,
+        client: j.client.slice(0, 8),
+        state: JobState[j.state]
+      })));
+
+      return clientJobs.slice(0, limit); // Return only requested number
     } catch (error) {
-      console.error("Error querying jobs by client:", error);
+      console.error("❌ Error querying jobs by client:", error);
       return [];
     }
   }
@@ -324,17 +340,17 @@ export class JobEventIndexer {
    * @returns Array of open jobs
    */
   async queryOpenJobs(limit: number = 50): Promise<JobEventData[]> {
-    // Query recent JobCreated events
-    const result = await this.queryJobCreatedEvents(null, limit * 2); // Fetch extra to account for non-open jobs
+    // Query recent JobCreated events - fetch more to account for filtered jobs
+    const result = await this.queryJobCreatedEvents(null, limit * 3);
 
-    // Build map of latest states
+    // Build map of latest states - INCREASE LIMIT to capture more state changes
     const stateMap = new Map<string, JobState>();
     try {
       const stateEvents = await this.suiClient.queryEvents({
         query: {
           MoveEventType: `${this.packageId}::job_escrow::JobStateChanged`,
         },
-        limit: limit * 2,
+        limit: limit * 10, // INCREASED from 2x to 10x to capture more state changes
         order: "descending",
       });
 
@@ -349,7 +365,7 @@ export class JobEventIndexer {
     }
 
     // Filter for open jobs
-    const openJobs = result.jobs
+    const candidateJobs = result.jobs
       .map((job) => {
         // Update state if we have newer info
         const latestState = stateMap.get(job.jobId);
@@ -358,10 +374,53 @@ export class JobEventIndexer {
         }
         return job;
       })
-      .filter((job) => job.state === JobState.OPEN)
-      .slice(0, limit);
+      .filter((job) => job.state === JobState.OPEN);
 
-    return openJobs;
+    // VERIFICATION: Double-check job states by fetching actual Job objects
+    // This ensures we don't show stale data in the marketplace
+    console.log(`🔍 Marketplace: Verifying ${candidateJobs.length} candidate OPEN jobs...`);
+    const verifiedJobs: JobEventData[] = [];
+    for (const job of candidateJobs) {
+      try {
+        const jobObject = await this.suiClient.getObject({
+          id: job.jobId,
+          options: { showContent: true },
+        });
+
+        if (jobObject.data?.content?.dataType === "moveObject") {
+          const fields = jobObject.data.content.fields as any;
+          const actualState = fields.state as JobState;
+
+          // Only include if actual state is OPEN
+          if (actualState === JobState.OPEN) {
+            // Update with verified state and applicants list
+            job.state = actualState;
+            job.applicants = fields.applicants || [];
+            verifiedJobs.push(job);
+
+            // Stop if we have enough jobs
+            if (verifiedJobs.length >= limit) {
+              break;
+            }
+          } else {
+            // Log jobs with mismatched states for debugging
+            console.warn(
+              `Job ${job.jobId} has mismatched state: event=${JobState[job.state]}, actual=${JobState[actualState]}`
+            );
+          }
+        }
+      } catch (error) {
+        console.error(`Error verifying job ${job.jobId}:`, error);
+        // If verification fails, include job based on event state
+        // (better to show possibly stale data than hide valid jobs)
+        if (job.state === JobState.OPEN && verifiedJobs.length < limit) {
+          verifiedJobs.push(job);
+        }
+      }
+    }
+
+    console.log(`✅ Marketplace: Returning ${verifiedJobs.length} verified OPEN jobs`);
+    return verifiedJobs;
   }
 
   /**
@@ -375,17 +434,17 @@ export class JobEventIndexer {
     state: JobState,
     limit: number = 50
   ): Promise<JobEventData[]> {
-    // Get recent jobs
-    const result = await this.queryJobCreatedEvents(null, limit * 2);
+    // Get recent jobs - fetch more to account for filtering
+    const result = await this.queryJobCreatedEvents(null, limit * 3);
 
-    // Get state updates
+    // Get state updates - INCREASED LIMIT
     const stateMap = new Map<string, JobState>();
     try {
       const stateEvents = await this.suiClient.queryEvents({
         query: {
           MoveEventType: `${this.packageId}::job_escrow::JobStateChanged`,
         },
-        limit: limit * 2,
+        limit: limit * 10, // INCREASED from 2x to 10x
         order: "descending",
       });
 

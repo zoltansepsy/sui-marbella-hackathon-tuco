@@ -1,36 +1,35 @@
 /**
- * MyJobsView Component
- * Displays all jobs posted by the current user (client)
+ * MyPortfolioView Component
+ * Displays all jobs assigned to the current user (freelancer)
  * Shows job cards with filtering and sorting options
  */
 
 "use client";
 
 import { useCurrentAccount } from "@mysten/dapp-kit";
-import { useJobsByClient } from "../../hooks/useJob";
+import { useJobsByFreelancer } from "../../hooks/useJob";
 import { JobCard } from "./JobCard";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { JobState } from "../../services";
 import { useState } from "react";
 
-interface MyJobsViewProps {
+interface MyPortfolioViewProps {
   onBack?: () => void;
   onViewJob?: (jobId: string) => void;
 }
 
-export function MyJobsView({ onBack, onViewJob }: MyJobsViewProps) {
+export function MyPortfolioView({ onBack, onViewJob }: MyPortfolioViewProps) {
   const currentAccount = useCurrentAccount();
-  const { jobs, isPending, error } = useJobsByClient(currentAccount?.address);
-  const [filter, setFilter] = useState<"all" | "open" | "active" | "completed" | "cancelled">("all");
+  const { jobs, isPending, error } = useJobsByFreelancer(currentAccount?.address);
+  const [filter, setFilter] = useState<"all" | "assigned" | "active" | "completed">("all");
 
   // Filter jobs based on selected filter
   const filteredJobs = jobs.filter((job) => {
     if (filter === "all") return true;
-    if (filter === "open") return job.state === JobState.OPEN || job.state === JobState.ASSIGNED;
+    if (filter === "assigned") return job.state === JobState.ASSIGNED;
     if (filter === "active") return job.state === JobState.IN_PROGRESS || job.state === JobState.SUBMITTED || job.state === JobState.AWAITING_REVIEW;
-    if (filter === "completed") return job.state === JobState.COMPLETED;
-    if (filter === "cancelled") return job.state === JobState.CANCELLED;
+    if (filter === "completed") return job.state === JobState.COMPLETED || job.state === JobState.CANCELLED;
     return true;
   });
 
@@ -42,9 +41,9 @@ export function MyJobsView({ onBack, onViewJob }: MyJobsViewProps) {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-bold">My Posted Jobs</h2>
+          <h2 className="text-3xl font-bold">My Portfolio</h2>
           <p className="text-muted-foreground mt-1">
-            Manage and track your posted jobs
+            Track your assigned jobs and work progress
           </p>
         </div>
         {onBack && (
@@ -55,7 +54,7 @@ export function MyJobsView({ onBack, onViewJob }: MyJobsViewProps) {
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Jobs</CardTitle>
@@ -66,11 +65,11 @@ export function MyJobsView({ onBack, onViewJob }: MyJobsViewProps) {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Open</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Assigned</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-400">
-              {jobs.filter(j => j.state === JobState.OPEN || j.state === JobState.ASSIGNED).length}
+            <div className="text-2xl font-bold text-yellow-400">
+              {jobs.filter(j => j.state === JobState.ASSIGNED).length}
             </div>
           </CardContent>
         </Card>
@@ -89,18 +88,8 @@ export function MyJobsView({ onBack, onViewJob }: MyJobsViewProps) {
             <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-400">
+            <div className="text-2xl font-bold text-green-400">
               {jobs.filter(j => j.state === JobState.COMPLETED).length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Cancelled</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-400">
-              {jobs.filter(j => j.state === JobState.CANCELLED).length}
             </div>
           </CardContent>
         </Card>
@@ -117,12 +106,12 @@ export function MyJobsView({ onBack, onViewJob }: MyJobsViewProps) {
           All
         </Button>
         <Button
-          variant={filter === "open" ? "default" : "outline"}
-          onClick={() => setFilter("open")}
+          variant={filter === "assigned" ? "default" : "outline"}
+          onClick={() => setFilter("assigned")}
           size="sm"
-          className={filter === "open" ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}
+          className={filter === "assigned" ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}
         >
-          Open
+          Assigned
         </Button>
         <Button
           variant={filter === "active" ? "default" : "outline"}
@@ -140,20 +129,12 @@ export function MyJobsView({ onBack, onViewJob }: MyJobsViewProps) {
         >
           Completed
         </Button>
-        <Button
-          variant={filter === "cancelled" ? "default" : "outline"}
-          onClick={() => setFilter("cancelled")}
-          size="sm"
-          className={filter === "cancelled" ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}
-        >
-          Cancelled
-        </Button>
       </div>
 
       {/* Jobs List */}
       {isPending ? (
         <div className="text-center py-12">
-          <div className="animate-pulse">Loading your jobs...</div>
+          <div className="animate-pulse">Loading your portfolio...</div>
         </div>
       ) : error ? (
         <Card className="border-red-500/50">
@@ -166,11 +147,11 @@ export function MyJobsView({ onBack, onViewJob }: MyJobsViewProps) {
           <CardContent className="pt-6 text-center py-12">
             <p className="text-muted-foreground mb-4">
               {filter === "all"
-                ? "You haven't posted any jobs yet."
+                ? "You haven't been assigned any jobs yet."
                 : `No ${filter} jobs found.`}
             </p>
             <p className="text-sm text-muted-foreground">
-              Post your first job to get started!
+              Browse the marketplace to find jobs!
             </p>
           </CardContent>
         </Card>

@@ -13,6 +13,7 @@
 
 import { SuiClient } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
+import { bcs } from "@mysten/sui/bcs";
 import {
   ProfileData,
   ProfileCapData,
@@ -57,10 +58,11 @@ export class ProfileService {
   ): Transaction {
     const tx = new Transaction();
 
-    // Encode tags as vector<vector<u8>>
+    // Encode tags as vector<vector<u8>> using BCS
     const encodedTags = tags.map((tag) =>
       Array.from(new TextEncoder().encode(tag))
     );
+    const serializedTags = bcs.vector(bcs.vector(bcs.u8())).serialize(encodedTags);
 
     tx.moveCall({
       arguments: [
@@ -71,7 +73,7 @@ export class ProfileService {
         tx.pure.vector("u8", Array.from(new TextEncoder().encode(username))),
         tx.pure.vector("u8", Array.from(new TextEncoder().encode(realName))),
         tx.pure.vector("u8", Array.from(new TextEncoder().encode(bio))),
-        tx.pure(encodedTags, "vector<vector<u8>>"),
+        tx.pure(serializedTags),
         tx.pure.vector("u8", Array.from(new TextEncoder().encode(avatarUrl))),
         tx.object("0x6"), // Clock
       ],
@@ -230,6 +232,75 @@ export class ProfileService {
       return this.getProfile(profileId);
     } catch (error) {
       console.error("Error fetching profile by owner:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Check if a profile exists for a zkLogin sub
+   * Queries the IdentityRegistry shared object to find profile by OAuth subject ID
+   *
+   * @param registryId IdentityRegistry shared object ID
+   * @param zkloginSub OAuth subject ID from JWT
+   * @returns Profile ID if exists, null otherwise
+   */
+  async getProfileIdByZkLoginSub(
+    registryId: string,
+    zkloginSub: string
+  ): Promise<string | null> {
+    try {
+      // Get the IdentityRegistry object
+      const registry = await this.suiClient.getObject({
+        id: registryId,
+        options: { showContent: true },
+      });
+
+      if (
+        !registry.data ||
+        registry.data.content?.dataType !== "moveObject"
+      ) {
+        console.error("IdentityRegistry not found or invalid");
+        return null;
+      }
+
+      const fields = registry.data.content.fields as any;
+      const tableField = fields.zklogin_to_profile;
+
+      if (!tableField || !tableField.fields || !tableField.fields.id) {
+        console.error("Invalid table structure in IdentityRegistry");
+        return null;
+      }
+
+      const tableId = tableField.fields.id.id;
+
+      // Query the dynamic field for this zkLogin sub
+      // Dynamic field name for Table<String, ID> is the key itself (zkloginSub)
+      try {
+        const dynamicField = await this.suiClient.getDynamicFieldObject({
+          parentId: tableId,
+          name: {
+            type: "0x1::string::String",
+            value: zkloginSub,
+          },
+        });
+
+        if (dynamicField.data?.content?.dataType === "moveObject") {
+          const dfFields = dynamicField.data.content.fields as any;
+          // The value field contains the Profile ID
+          return dfFields.value || null;
+        }
+      } catch (dfError: any) {
+        // Dynamic field not found means profile doesn't exist
+        if (dfError.message?.includes("not found") || dfError.code === -32602) {
+          console.log("No profile found for zkLogin sub:", zkloginSub);
+          return null;
+        }
+        throw dfError;
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Error checking zkLogin profile:", error);
       return null;
     }
   }
