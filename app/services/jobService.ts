@@ -311,6 +311,148 @@ export class JobService {
    * @returns Job data or null if not found
    */
   async getJob(jobId: string): Promise<JobData | null> {
+    // MOCK DATA: Toggle for hackathon demo
+    const USE_MOCK_DATA = true;
+
+    if (USE_MOCK_DATA) {
+      const now = Date.now();
+
+      // Return mock data matching getJobsByFreelancer() mock IDs AND getJobsByClient() mock IDs
+      const mockJobs: Record<string, JobData> = {
+        // Freelancer Portfolio Mock Jobs (from My Portfolio)
+        "0x1111111111111111111111111111111111111111111111111111111111111111": {
+          objectId: "0x1111111111111111111111111111111111111111111111111111111111111111",
+          state: JobState.ASSIGNED,
+          client: "0xc1111111111111111111111111111111111111111111111111111111111111111",
+          freelancer: "0xf000000000000000000000000000000000000000000000000000000000000000",
+          title: "Build React Dashboard",
+          descriptionBlobId: "dummy-job-dashboard-desc",
+          budget: 5_000_000_000, // 5 SUI
+          milestones: [],
+          milestoneCount: 1,
+          applicants: [],
+          createdAt: now - 3_600_000, // 1 hour ago
+          deadline: now + 7 * 24 * 3600_000, // 7 days from now
+          deliverableBlobIds: [],
+        },
+        "0x2222222222222222222222222222222222222222222222222222222222222222": {
+          objectId: "0x2222222222222222222222222222222222222222222222222222222222222222",
+          state: JobState.IN_PROGRESS,
+          client: "0xc2222222222222222222222222222222222222222222222222222222222222222",
+          freelancer: "0xf000000000000000000000000000000000000000000000000000000000000000",
+          title: "Smart Contract Audit",
+          descriptionBlobId: "dummy-job-audit-desc",
+          budget: 10_000_000_000, // 10 SUI
+          milestones: [],
+          milestoneCount: 3,
+          applicants: [],
+          createdAt: now - 2 * 24 * 3600_000, // 2 days ago
+          deadline: now + 5 * 24 * 3600_000, // 5 days from now
+          deliverableBlobIds: [],
+        },
+        "0x3333333333333333333333333333333333333333333333333333333333333333": {
+          objectId: "0x3333333333333333333333333333333333333333333333333333333333333333",
+          state: JobState.SUBMITTED,
+          client: "0xc3333333333333333333333333333333333333333333333333333333333333333",
+          freelancer: "0xf000000000000000000000000000000000000000000000000000000000000000",
+          title: "Logo Design",
+          descriptionBlobId: "dummy-job-logo-desc",
+          budget: 2_000_000_000, // 2 SUI
+          milestones: [],
+          milestoneCount: 1,
+          applicants: [],
+          createdAt: now - 5 * 24 * 3600_000, // 5 days ago
+          deadline: now + 2 * 24 * 3600_000, // 2 days from now (approaching)
+          deliverableBlobIds: ["dummy-deliverable-logo-v1"],
+        },
+        "0x4444444444444444444444444444444444444444444444444444444444444444": {
+          objectId: "0x4444444444444444444444444444444444444444444444444444444444444444",
+          state: JobState.COMPLETED,
+          client: "0xc4444444444444444444444444444444444444444444444444444444444444444",
+          freelancer: "0xf000000000000000000000000000000000000000000000000000000000000000",
+          title: "Mobile App Prototype",
+          descriptionBlobId: "dummy-job-mobile-desc",
+          budget: 8_000_000_000, // 8 SUI
+          milestones: [],
+          milestoneCount: 2,
+          applicants: [],
+          createdAt: now - 10 * 24 * 3600_000, // 10 days ago
+          deadline: now - 1 * 24 * 3600_000, // 1 day ago (completed)
+          deliverableBlobIds: ["dummy-deliverable-prototype-final"],
+        },
+        // Client Portfolio Mock Jobs (from My Posted Jobs)
+        "0xaaaa000000000000000000000000000000000000000000000000000000000001": {
+          objectId: "0xaaaa000000000000000000000000000000000000000000000000000000000001",
+          client: "0xDYNAMIC_CLIENT", // Will be replaced dynamically
+          freelancer: "0xf111111111111111111111111111111111111111111111111111111111111111",
+          title: "🎨 Design Landing Page (DEMO - ACTIVE)",
+          descriptionBlobId: "dummy-job-landing-page-design",
+          budget: 3_000_000_000, // 3 SUI
+          state: JobState.IN_PROGRESS,
+          milestones: [],
+          milestoneCount: 2,
+          applicants: [],
+          createdAt: now - 3 * 24 * 3600_000, // 3 days ago
+          deadline: now + 4 * 24 * 3600_000, // 4 days from now
+          deliverableBlobIds: [],
+        },
+        "0xaaaa000000000000000000000000000000000000000000000000000000000002": {
+          objectId: "0xaaaa000000000000000000000000000000000000000000000000000000000002",
+          client: "0xDYNAMIC_CLIENT",
+          freelancer: "0xf222222222222222222222222222222222222222222222222222222222222222",
+          title: "⚙️ Smart Contract Integration (DEMO - SUBMITTED)",
+          descriptionBlobId: "dummy-job-contract-integration",
+          budget: 12_000_000_000, // 12 SUI
+          state: JobState.SUBMITTED,
+          milestones: [],
+          milestoneCount: 4,
+          applicants: [],
+          createdAt: now - 7 * 24 * 3600_000, // 7 days ago
+          deadline: now + 3 * 24 * 3600_000, // 3 days from now (urgent)
+          deliverableBlobIds: ["dummy-deliverable-milestone-1"],
+        },
+        "0xaaaa000000000000000000000000000000000000000000000000000000000003": {
+          objectId: "0xaaaa000000000000000000000000000000000000000000000000000000000003",
+          client: "0xDYNAMIC_CLIENT",
+          freelancer: "0xf333333333333333333333333333333333333333333333333333333333333333",
+          title: "📱 Mobile App MVP (DEMO - COMPLETED)",
+          descriptionBlobId: "dummy-job-mobile-app-mvp",
+          budget: 15_000_000_000, // 15 SUI
+          state: JobState.COMPLETED,
+          milestones: [],
+          milestoneCount: 5,
+          applicants: [],
+          createdAt: now - 30 * 24 * 3600_000, // 30 days ago
+          deadline: now - 5 * 24 * 3600_000, // Completed 5 days after deadline
+          deliverableBlobIds: ["dummy-deliverable-mvp-final", "dummy-deliverable-mvp-docs"],
+        },
+        "0xaaaa000000000000000000000000000000000000000000000000000000000004": {
+          objectId: "0xaaaa000000000000000000000000000000000000000000000000000000000004",
+          client: "0xDYNAMIC_CLIENT",
+          freelancer: "0xf444444444444444444444444444444444444444444444444444444444444444",
+          title: "🎯 Marketing Campaign Strategy (DEMO - COMPLETED)",
+          descriptionBlobId: "dummy-job-marketing-campaign",
+          budget: 6_000_000_000, // 6 SUI
+          state: JobState.COMPLETED,
+          milestones: [],
+          milestoneCount: 3,
+          applicants: [],
+          createdAt: now - 45 * 24 * 3600_000, // 45 days ago
+          deadline: now - 15 * 24 * 3600_000, // Completed 15 days ago
+          deliverableBlobIds: ["dummy-deliverable-marketing-strategy"],
+        },
+      };
+
+      const mockJob = mockJobs[jobId];
+      if (mockJob) {
+        console.log(`🃏 MOCK: getJob(${jobId.slice(0, 8)}...) -> ${mockJob.title} [${JobState[mockJob.state]}]`);
+        return mockJob;
+      }
+
+      console.log(`⚠️ MOCK: Job ${jobId.slice(0, 8)}... not found in mock data`);
+      // Fall through to real blockchain fetch if not in mock data
+    }
+
     try {
       const object = await this.suiClient.getObject({
         id: jobId,
@@ -372,7 +514,7 @@ export class JobService {
       const indexer = createJobEventIndexer(this.suiClient, this.packageId);
       const jobEvents = await indexer.queryJobsByClient(clientAddress);
 
-      console.log(`📋 getJobsByClient: Found ${jobEvents.length} jobs from events`);
+      console.log(`📋 getJobsByClient: Found ${jobEvents.length} real jobs from blockchain events`);
 
       // Fetch actual Job objects to get current state (events only show creation state)
       const jobs: JobData[] = [];
@@ -422,7 +564,87 @@ export class JobService {
         }
       }
 
-      console.log(`✅ getJobsByClient: Returning ${jobs.length} jobs`);
+      // ============================================================================
+      // MOCK DATA: Add supplemental mock jobs for demo purposes
+      // ============================================================================
+      const ADD_MOCK_JOBS = true; // Toggle to false to show only real blockchain data
+
+      if (ADD_MOCK_JOBS) {
+        console.log(`🎭 MOCK: Adding supplemental demo jobs to client portfolio`);
+
+        const now = Date.now();
+        const mockJobs: JobData[] = [
+          // ACTIVE job - In Progress
+          {
+            objectId: "0xaaaa000000000000000000000000000000000000000000000000000000000001",
+            client: clientAddress, // Use actual client address
+            freelancer: "0xf111111111111111111111111111111111111111111111111111111111111111",
+            title: "🎨 Design Landing Page (DEMO - ACTIVE)",
+            descriptionBlobId: "dummy-job-landing-page-design",
+            budget: 3_000_000_000, // 3 SUI
+            state: JobState.IN_PROGRESS,
+            milestones: [],
+            milestoneCount: 2,
+            applicants: [],
+            createdAt: now - 3 * 24 * 3600_000, // 3 days ago
+            deadline: now + 4 * 24 * 3600_000, // 4 days from now
+            deliverableBlobIds: [],
+          },
+          // ACTIVE job - Submitted (awaiting review)
+          {
+            objectId: "0xaaaa000000000000000000000000000000000000000000000000000000000002",
+            client: clientAddress,
+            freelancer: "0xf222222222222222222222222222222222222222222222222222222222222222",
+            title: "⚙️ Smart Contract Integration (DEMO - SUBMITTED)",
+            descriptionBlobId: "dummy-job-contract-integration",
+            budget: 12_000_000_000, // 12 SUI
+            state: JobState.SUBMITTED,
+            milestones: [],
+            milestoneCount: 4,
+            applicants: [],
+            createdAt: now - 7 * 24 * 3600_000, // 7 days ago
+            deadline: now + 3 * 24 * 3600_000, // 3 days from now (urgent)
+            deliverableBlobIds: ["dummy-deliverable-milestone-1"],
+          },
+          // COMPLETED job
+          {
+            objectId: "0xaaaa000000000000000000000000000000000000000000000000000000000003",
+            client: clientAddress,
+            freelancer: "0xf333333333333333333333333333333333333333333333333333333333333333",
+            title: "📱 Mobile App MVP (DEMO - COMPLETED)",
+            descriptionBlobId: "dummy-job-mobile-app-mvp",
+            budget: 15_000_000_000, // 15 SUI
+            state: JobState.COMPLETED,
+            milestones: [],
+            milestoneCount: 5,
+            applicants: [],
+            createdAt: now - 30 * 24 * 3600_000, // 30 days ago
+            deadline: now - 5 * 24 * 3600_000, // Completed 5 days after deadline
+            deliverableBlobIds: ["dummy-deliverable-mvp-final", "dummy-deliverable-mvp-docs"],
+          },
+          // Another COMPLETED job
+          {
+            objectId: "0xaaaa000000000000000000000000000000000000000000000000000000000004",
+            client: clientAddress,
+            freelancer: "0xf444444444444444444444444444444444444444444444444444444444444444",
+            title: "🎯 Marketing Campaign Strategy (DEMO - COMPLETED)",
+            descriptionBlobId: "dummy-job-marketing-campaign",
+            budget: 6_000_000_000, // 6 SUI
+            state: JobState.COMPLETED,
+            milestones: [],
+            milestoneCount: 3,
+            applicants: [],
+            createdAt: now - 45 * 24 * 3600_000, // 45 days ago
+            deadline: now - 15 * 24 * 3600_000, // Completed 15 days ago
+            deliverableBlobIds: ["dummy-deliverable-marketing-strategy"],
+          },
+        ];
+
+        jobs.push(...mockJobs);
+        console.log(`🎭 MOCK: Added ${mockJobs.length} demo jobs (${jobs.length} total including real jobs)`);
+      }
+
+      console.log(`✅ getJobsByClient: Returning ${jobs.length} jobs (real + mock)`);
       return jobs;
     } catch (error) {
       console.error("Error fetching client jobs:", error);
@@ -438,6 +660,85 @@ export class JobService {
    * @returns Array of job data
    */
   async getJobsByFreelancer(freelancerAddress: string): Promise<JobData[]> {
+    // ============================================================================
+    // MOCK DATA: Uncomment this section to use mock data for demo/testing
+    // ============================================================================
+    const USE_MOCK_DATA = true; // Toggle to false for real blockchain data
+
+    if (USE_MOCK_DATA) {
+      console.log(`🎭 MOCK: getJobsByFreelancer returning sample jobs for ${freelancerAddress.slice(0, 8)}...`);
+
+      const now = Date.now();
+      const mockJobs: JobData[] = [
+        {
+          objectId: "0x1111111111111111111111111111111111111111111111111111111111111111",
+          client: "0xclient111111111111111111111111111111111111111111111111111111111",
+          freelancer: freelancerAddress,
+          title: "Build React Dashboard",
+          descriptionBlobId: "dummy-job-dashboard-001",
+          budget: 5_000_000_000, // 5 SUI
+          state: JobState.ASSIGNED,
+          milestones: [],
+          milestoneCount: 3,
+          applicants: [],
+          createdAt: now - 86400000, // 1 day ago
+          deadline: now + 604800000, // 7 days from now
+          deliverableBlobIds: [],
+        },
+        {
+          objectId: "0x2222222222222222222222222222222222222222222222222222222222222222",
+          client: "0xclient222222222222222222222222222222222222222222222222222222222",
+          freelancer: freelancerAddress,
+          title: "API Integration",
+          descriptionBlobId: "dummy-job-api-002",
+          budget: 3_500_000_000, // 3.5 SUI
+          state: JobState.IN_PROGRESS,
+          milestones: [],
+          milestoneCount: 2,
+          applicants: [],
+          createdAt: now - 259200000, // 3 days ago
+          deadline: now + 345600000, // 4 days from now
+          deliverableBlobIds: [],
+        },
+        {
+          objectId: "0x3333333333333333333333333333333333333333333333333333333333333333",
+          client: "0xclient333333333333333333333333333333333333333333333333333333333",
+          freelancer: freelancerAddress,
+          title: "Smart Contract Audit",
+          descriptionBlobId: "dummy-job-audit-003",
+          budget: 8_000_000_000, // 8 SUI
+          state: JobState.SUBMITTED,
+          milestones: [],
+          milestoneCount: 1,
+          applicants: [],
+          createdAt: now - 432000000, // 5 days ago
+          deadline: now + 172800000, // 2 days from now
+          deliverableBlobIds: ["dummy-deliverable-audit-001"],
+        },
+        {
+          objectId: "0x4444444444444444444444444444444444444444444444444444444444444444",
+          client: "0xclient444444444444444444444444444444444444444444444444444444444",
+          freelancer: freelancerAddress,
+          title: "Website Redesign",
+          descriptionBlobId: "dummy-job-redesign-004",
+          budget: 10_000_000_000, // 10 SUI
+          state: JobState.COMPLETED,
+          milestones: [],
+          milestoneCount: 4,
+          applicants: [],
+          createdAt: now - 1209600000, // 14 days ago
+          deadline: now - 86400000, // 1 day ago (completed before deadline)
+          deliverableBlobIds: ["dummy-deliverable-redesign-001", "dummy-deliverable-redesign-002"],
+        },
+      ];
+
+      console.log(`✅ MOCK: Returning ${mockJobs.length} mock jobs`);
+      return mockJobs;
+    }
+    // ============================================================================
+    // END OF MOCK DATA
+    // ============================================================================
+
     try {
       // Use event indexer to get job IDs assigned to this freelancer
       const indexer = createJobEventIndexer(this.suiClient, this.packageId);

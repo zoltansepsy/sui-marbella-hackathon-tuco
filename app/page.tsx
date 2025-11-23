@@ -13,6 +13,7 @@ import { MyPortfolioView } from "./components/job/MyPortfolioView";
 import { JobMarketplaceView } from "./JobMarketplaceView";
 import { CreateJobView } from "./components/job/CreateJobView";
 import { ClientJobDetailView } from "./components/job/ClientJobDetailView";
+import { FreelancerJobDetailView } from "./components/job/FreelancerJobDetailView";
 import { ProfileView } from "./components/profile/ProfileView";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,8 @@ export default function Home() {
   const [counterId, setCounter] = useState<string | null>(null);
   const { view, setView, selectedJobId, setSelectedJobId } = useView();
   const { profile } = useCurrentProfile();
+  // Track which view the job detail was opened from (client or freelancer context)
+  const [jobDetailOrigin, setJobDetailOrigin] = useState<"myJobs" | "myPortfolio">("myJobs");
 
 
   useEffect(() => {
@@ -159,6 +162,7 @@ export default function Home() {
                     <MyJobsView
                       onBack={() => setView("home")}
                       onViewJob={(jobId) => {
+                        setJobDetailOrigin("myJobs");
                         setSelectedJobId?.(jobId);
                         setView("jobDetail");
                       }}
@@ -169,8 +173,8 @@ export default function Home() {
                     <MyPortfolioView
                       onBack={() => setView("home")}
                       onViewJob={(jobId) => {
-                        // TODO: Navigate to job detail view
-                        console.log("View job:", jobId);
+                        setJobDetailOrigin("myPortfolio");
+                        setSelectedJobId?.(jobId);
                         setView("jobDetail");
                       }}
                     />
@@ -197,13 +201,25 @@ export default function Home() {
                   )}
 
                   {view === "jobDetail" && selectedJobId && (
-                    <ClientJobDetailView
-                      jobId={selectedJobId}
-                      onBack={() => {
-                        setSelectedJobId?.("");
-                        setView("myJobs");
-                      }}
-                    />
+                    <>
+                      {jobDetailOrigin === "myJobs" ? (
+                        <ClientJobDetailView
+                          jobId={selectedJobId}
+                          onBack={() => {
+                            setSelectedJobId?.("");
+                            setView("myJobs");
+                          }}
+                        />
+                      ) : (
+                        <FreelancerJobDetailView
+                          jobId={selectedJobId}
+                          onBack={() => {
+                            setSelectedJobId?.("");
+                            setView("myPortfolio");
+                          }}
+                        />
+                      )}
+                    </>
                   )}
 
                   {view === "createCounter" && (

@@ -110,6 +110,13 @@ export function ClientJobDetailView({ jobId, onBack }: ClientJobDetailViewProps)
   // Check if current user is the client
   const isClient = useMemo(() => {
     if (!job || !currentAccount) return false;
+
+    // MOCK DATA: If client address is the placeholder, allow any user (for demo)
+    if (job.client === "0xDYNAMIC_CLIENT") {
+      console.log("🎭 MOCK: Allowing client access for demo purposes");
+      return true;
+    }
+
     return job.client === currentAccount.address;
   }, [job, currentAccount]);
 
@@ -474,12 +481,12 @@ export function ClientJobDetailView({ jobId, onBack }: ClientJobDetailViewProps)
       {(job.state === JobState.ASSIGNED || job.state === JobState.IN_PROGRESS) && job.freelancer && (
         <Card className="border-blue-200 bg-blue-50">
           <CardHeader>
-            <CardTitle className="text-blue-800">Assigned Freelancer</CardTitle>
-            <CardDescription>Work is {job.state === JobState.ASSIGNED ? "assigned" : "in progress"}</CardDescription>
+            <CardTitle className="text-blue-900">Assigned Freelancer</CardTitle>
+            <CardDescription className="text-blue-700">Work is {job.state === JobState.ASSIGNED ? "assigned" : "in progress"}</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="font-mono text-sm">{shortenAddress(job.freelancer)}</p>
-            <Button size="sm" variant="outline" className="mt-2">
+            <p className="font-mono text-sm text-blue-900">{shortenAddress(job.freelancer)}</p>
+            <Button size="sm" variant="outline" className="mt-2 border-blue-300 text-blue-900 hover:bg-blue-100">
               View Profile
             </Button>
           </CardContent>
@@ -490,22 +497,22 @@ export function ClientJobDetailView({ jobId, onBack }: ClientJobDetailViewProps)
       {(job.state === JobState.SUBMITTED || job.state === JobState.AWAITING_REVIEW) && (
         <Card className="border-orange-200 bg-orange-50">
           <CardHeader>
-            <CardTitle className="text-orange-800">Milestone Submitted for Review</CardTitle>
-            <CardDescription>Review the submission and approve or request changes</CardDescription>
+            <CardTitle className="text-orange-900">Milestone Submitted for Review</CardTitle>
+            <CardDescription className="text-orange-700">Review the submission and approve or request changes</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
+              <Alert className="bg-white border-orange-300">
+                <AlertCircle className="h-4 w-4 text-orange-600" />
+                <AlertDescription className="text-orange-900">
                   Milestone has been submitted. Review the deliverable and approve to release payment.
                 </AlertDescription>
               </Alert>
 
               {job.deliverableBlobIds.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium mb-2">Deliverable:</p>
-                  <p className="text-xs font-mono text-muted-foreground">
+                  <p className="text-sm font-medium text-orange-900 mb-2">Deliverable:</p>
+                  <p className="text-xs font-mono text-orange-800">
                     {job.deliverableBlobIds[0]}
                   </p>
                 </div>
@@ -513,16 +520,24 @@ export function ClientJobDetailView({ jobId, onBack }: ClientJobDetailViewProps)
 
               <div className="flex gap-2">
                 <Button
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-green-600 hover:bg-green-700 text-white"
                   disabled={loadingJobCap || !jobCapId}
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Approve Milestone
                 </Button>
-                <Button variant="outline" disabled={loadingJobCap || !jobCapId}>
+                <Button
+                  variant="outline"
+                  className="bg-white border-orange-300 text-orange-900 hover:bg-orange-100"
+                  disabled={loadingJobCap || !jobCapId}
+                >
                   Request Revision
                 </Button>
-                <Button variant="destructive" disabled={loadingJobCap || !jobCapId}>
+                <Button
+                  variant="destructive"
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  disabled={loadingJobCap || !jobCapId}
+                >
                   <XCircle className="h-4 w-4 mr-2" />
                   Reject
                 </Button>
