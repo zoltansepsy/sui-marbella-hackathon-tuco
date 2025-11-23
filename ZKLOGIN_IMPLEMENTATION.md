@@ -2,7 +2,7 @@
 
 ## Overview
 
-The zkLogin feature has been successfully integrated into the TaskinPool platform. Users can now authenticate with their Google account and interact with the Sui blockchain without needing a traditional wallet extension.
+The zkLogin feature has been successfully integrated into the Gignova platform. Users can now authenticate with their Google account and interact with the Sui blockchain without needing a traditional wallet extension.
 
 ## What Was Implemented
 

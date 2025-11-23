@@ -557,47 +557,47 @@ export function ProfileView({ onBack, onCreateProfile }: ProfileViewProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Completed Jobs */}
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-green-600 rounded-lg">
                 <div className="flex items-center gap-3">
-                  <CheckCircle className="h-8 w-8 text-green-600" />
+                  <CheckCircle className="h-8 w-8 text-white" />
                   <div>
-                    <p className="text-sm text-muted-foreground">Completed</p>
-                    <p className="text-2xl font-bold">{profile.completedJobs}</p>
+                    <p className="text-sm text-green-100">Completed</p>
+                    <p className="text-2xl font-bold text-white">{profile.completedJobs}</p>
                   </div>
                 </div>
               </div>
 
               {/* Total Jobs */}
-              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-blue-600 rounded-lg">
                 <div className="flex items-center gap-3">
-                  <Briefcase className="h-8 w-8 text-blue-600" />
+                  <Briefcase className="h-8 w-8 text-white" />
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Jobs</p>
-                    <p className="text-2xl font-bold">{profile.totalJobs}</p>
+                    <p className="text-sm text-blue-100">Total Jobs</p>
+                    <p className="text-2xl font-bold text-white">{profile.totalJobs}</p>
                   </div>
                 </div>
               </div>
 
               {/* Active Jobs */}
-              <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-yellow-600 rounded-lg">
                 <div className="flex items-center gap-3">
-                  <Clock className="h-8 w-8 text-yellow-600" />
+                  <Clock className="h-8 w-8 text-white" />
                   <div>
-                    <p className="text-sm text-muted-foreground">Active</p>
-                    <p className="text-2xl font-bold">{profile.activeJobsCount}</p>
+                    <p className="text-sm text-yellow-100">Active</p>
+                    <p className="text-2xl font-bold text-white">{profile.activeJobsCount}</p>
                   </div>
                 </div>
               </div>
 
               {/* Total Amount */}
-              <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-purple-600 rounded-lg">
                 <div className="flex items-center gap-3">
-                  <DollarSign className="h-8 w-8 text-purple-600" />
+                  <DollarSign className="h-8 w-8 text-white" />
                   <div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-purple-100">
                       {profile.profileType === ProfileType.FREELANCER ? "Earned" : "Spent"}
                     </p>
-                    <p className="text-2xl font-bold">{formatSUI(profile.totalAmount)}</p>
+                    <p className="text-2xl font-bold text-white">{formatSUI(profile.totalAmount)}</p>
                   </div>
                 </div>
               </div>
