@@ -16,6 +16,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
+import { useCurrentAccount } from "@mysten/dapp-kit";
 import { useOpenJobs } from "@/hooks";
 import { JobList } from "@/components/job/JobList";
 import { JobDetailView } from "@/components/job/JobDetailView";
@@ -40,6 +41,7 @@ interface JobMarketplaceViewProps {
 }
 
 export function JobMarketplaceView({ onBack }: JobMarketplaceViewProps) {
+  const currentAccount = useCurrentAccount();
   const { jobs, isPending, error, refetch } = useOpenJobs(200);
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [showFilters, setShowFilters] = useState(false);
@@ -358,6 +360,7 @@ export function JobMarketplaceView({ onBack }: JobMarketplaceViewProps) {
         jobs={displayedJobs}
         isLoading={isPending}
         onJobClick={handleJobClick}
+        currentUserAddress={currentAccount?.address}
       />
 
       {/* Infinite Scroll Trigger */}

@@ -4,21 +4,39 @@
  *
  * Features:
  * - 4-step wizard (Info → Budget → Milestones → Review)
- * - Walrus integration for job description upload
+ * - Walrus integration for job description upload (TEMPORARILY DISABLED - see TODO below)
  * - Milestone management with validation
  * - Budget allocation and escrow setup
  * - Profile requirement check
  * - Real-time form validation
  * - Preview before submission
+ *
+ * ============================================================================
+ * TODO: WALRUS INTEGRATION (Currently using dummy blob IDs for hackathon)
+ * ============================================================================
+ *
+ * Current Status: Walrus upload is COMMENTED OUT to speed up development.
+ * Using dummy blob IDs instead (format: dummy-job-{timestamp}-{random})
+ *
+ * To RESTORE Walrus Integration:
+ * 1. Uncomment walrusService creation (line ~110)
+ * 2. Uncomment state variables: uploadingDescription, uploadProgress, descriptionBlobId (lines ~95-97)
+ * 3. Uncomment Walrus upload flow in handleSubmit (lines ~226-304)
+ * 4. Remove generateDummyBlobId() call (line ~228)
+ * 5. Uncomment progress UI (lines ~843-890)
+ * 6. Update submit button text (lines ~917-923)
+ *
+ * All Walrus code is preserved below with TODO markers for easy restoration.
+ * ============================================================================
  */
 
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
 import { useNetworkVariable } from "../../networkConfig";
 import { useCurrentProfile } from "@/hooks";
-import { createJobService, createWalrusService } from "@/services";
+import { createJobService } from "@/services"; // createWalrusService removed temporarily
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +57,7 @@ import {
   Upload,
 } from "lucide-react";
 import { formatSUI, suiToMist, isValidSuiAmount } from "@/utils";
+import { generateDummyBlobId } from "@/utils/dummyBlobId"; // TODO: Remove when restoring Walrus
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -81,13 +100,14 @@ export function CreateJobView({ onBack, onSuccess }: CreateJobViewProps) {
 
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadingDescription, setUploadingDescription] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<string>("");
+  // TODO: RESTORE WALRUS - Uncomment these state variables when restoring Walrus integration
+  // const [uploadingDescription, setUploadingDescription] = useState(false);
+  // const [uploadProgress, setUploadProgress] = useState<string>("");
+  // const [descriptionBlobId, setDescriptionBlobId] = useState<string | null>(null);
   const [creatingJob, setCreatingJob] = useState(false);
   const [addingMilestones, setAddingMilestones] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [descriptionBlobId, setDescriptionBlobId] = useState<string | null>(null);
 
   // Services
   const jobService = useMemo(
@@ -95,10 +115,11 @@ export function CreateJobView({ onBack, onSuccess }: CreateJobViewProps) {
     [suiClient, jobPackageId]
   );
 
-  const walrusService = useMemo(
-    () => createWalrusService({ network: "testnet", epochs: 10 }),
-    []
-  );
+  // TODO: RESTORE WALRUS - Uncomment walrusService when restoring Walrus integration
+  // const walrusService = useMemo(
+  //   () => createWalrusService({ network: "testnet", epochs: 10 }),
+  //   []
+  // );
 
   // Calculate total budget in MIST
   const budgetMist = useMemo(() => {
@@ -211,84 +232,98 @@ export function CreateJobView({ onBack, onSuccess }: CreateJobViewProps) {
     setError(null);
 
     try {
-      // Step 1: Upload description to Walrus using writeFilesFlow
-      setUploadingDescription(true);
+      // TODO: RESTORE WALRUS - Step 1: Upload description to Walrus
+      // Currently using dummy blob ID for hackathon speed
+      const blobId = generateDummyBlobId('job', Date.now());
+      console.log('📝 Using dummy blob ID:', blobId);
 
-      // Create upload flow for browser environment (avoids popup blocking)
-      const flow = walrusService.uploadWithFlow(
-        [
-          {
-            contents: formData.description,
-            identifier: `job-${Date.now()}.txt`,
-            tags: {
-              "content-type": "text/plain",
-              "job-title": formData.title,
-              "created-at": new Date().toISOString(),
-            },
-          },
-        ],
-        {
-          epochs: 10, // ~30 days storage on testnet
-          deletable: false, // Permanent job description
-        }
-      );
-
-      // Encode files
-      setUploadProgress("Encoding description...");
-      await flow.encode();
-
-      // Register on blockchain
-      setUploadProgress("Registering on blockchain...");
-      const registerTx = flow.register({
-        owner: currentAccount.address,
-        epochs: 10,
-        deletable: false,
-      });
-
-      // Execute register transaction
-      await new Promise<void>((resolve, reject) => {
-        signAndExecute(
-          { transaction: registerTx },
-          {
-            onSuccess: async ({ digest }) => {
-              await suiClient.waitForTransaction({ digest });
-
-              // Upload to storage nodes
-              setUploadProgress("Uploading to Walrus storage...");
-              await flow.upload({ digest });
-
-              // Certify on blockchain
-              setUploadProgress("Certifying upload...");
-              const certifyTx = flow.certify();
-
-              signAndExecute(
-                { transaction: certifyTx },
-                {
-                  onSuccess: async ({ digest: certifyDigest }) => {
-                    await suiClient.waitForTransaction({ digest: certifyDigest });
-                    setUploadProgress("Upload complete!");
-                    resolve();
-                  },
-                  onError: (error) => {
-                    console.error("Certify transaction failed:", error);
-                    reject(error);
-                  },
-                }
-              );
-            },
-            onError: (error) => {
-              console.error("Register transaction failed:", error);
-              reject(error);
-            },
-          }
-        );
-      });
-
-      // Get blob ID from completed upload
-      const uploadedFiles = await flow.listFiles();
-      const blobId = uploadedFiles[0].blobId;
-      setDescriptionBlobId(blobId);
-      setUploadingDescription(false);
+      /* ============================================================================
+       * TODO: RESTORE WALRUS UPLOAD - Uncomment this entire section
+       * ============================================================================
+       *
+       * // Step 1: Upload description to Walrus using writeFilesFlow
+       * setUploadingDescription(true);
+       *
+       * // Create upload flow for browser environment (avoids popup blocking)
+       * const flow = walrusService.uploadWithFlow(
+       *   [
+       *     {
+       *       contents: formData.description,
+       *       identifier: `job-${Date.now()}.txt`,
+       *       tags: {
+       *         "content-type": "text/plain",
+       *         "job-title": formData.title,
+       *         "created-at": new Date().toISOString(),
+       *       },
+       *     },
+       *   ],
+       *   {
+       *     epochs: 10, // ~30 days storage on testnet
+       *     deletable: false, // Permanent job description
+       *   }
+       * );
+       *
+       * // Encode files
+       * setUploadProgress("Encoding description...");
+       * await flow.encode();
+       *
+       * // Register on blockchain
+       * setUploadProgress("Registering on blockchain...");
+       * const registerTx = flow.register({
+       *   owner: currentAccount.address,
+       *   epochs: 10,
+       *   deletable: false,
+       * });
+       *
+       * // Execute register transaction
+       * await new Promise<void>((resolve, reject) => {
+       *   signAndExecute(
+       *     { transaction: registerTx },
+       *     {
+       *       onSuccess: async ({ digest }) => {
+       *         await suiClient.waitForTransaction({ digest });
+       *
+       *         // Upload to storage nodes
+       *         setUploadProgress("Uploading to Walrus storage...");
+       *         await flow.upload({ digest });
+       *
+       *         // Certify on blockchain
+       *         setUploadProgress("Certifying upload...");
+       *         const certifyTx = flow.certify();
+       *
+       *         signAndExecute(
+       *           { transaction: certifyTx },
+       *           {
+       *             onSuccess: async ({ digest: certifyDigest }) => {
+       *               await suiClient.waitForTransaction({ digest: certifyDigest });
+       *               setUploadProgress("Upload complete!");
+       *               resolve();
+       *             },
+       *             onError: (error) => {
+       *               console.error("Certify transaction failed:", error);
+       *               reject(error);
+       *             },
+       *           }
+       *         );
+       *       },
+       *       onError: (error) => {
+       *         console.error("Register transaction failed:", error);
+       *         reject(error);
+       *       },
+       *     }
+       *   );
+       * });
+       *
+       * // Get blob ID from completed upload
+       * const uploadedFiles = await flow.listFiles();
+       * const blobId = uploadedFiles[0].blobId;
+       * setDescriptionBlobId(blobId);
+       * setUploadingDescription(false);
+       *
+       * ============================================================================
+       * END OF WALRUS UPLOAD CODE
+       * ============================================================================
+       */
 
       // Step 2: Calculate deadline timestamp
       const deadlineDate = new Date(`${formData.deadline}T${formData.deadlineTime}`);
@@ -324,7 +359,7 @@ export function CreateJobView({ onBack, onSuccess }: CreateJobViewProps) {
 
                 for (let i = 0; i < formData.milestones.length; i++) {
                   const milestone = formData.milestones[i];
-                  setUploadProgress(`Adding milestone ${i + 1} of ${formData.milestones.length}...`);
+                  console.log(`📊 Adding milestone ${i + 1} of ${formData.milestones.length}...`);
 
                   const milestoneTx = jobService.addMilestoneTransaction(
                     jobId,
@@ -367,7 +402,6 @@ export function CreateJobView({ onBack, onSuccess }: CreateJobViewProps) {
             console.error("Error creating job:", error);
             setError(error.message || "Failed to create job");
             setIsSubmitting(false);
-            setUploadingDescription(false);
             setCreatingJob(false);
             setAddingMilestones(false);
           },
@@ -377,7 +411,6 @@ export function CreateJobView({ onBack, onSuccess }: CreateJobViewProps) {
       console.error("Error creating job:", error);
       setError(error.message || "Failed to create job");
       setIsSubmitting(false);
-      setUploadingDescription(false);
       setCreatingJob(false);
       setAddingMilestones(false);
     }
@@ -532,7 +565,8 @@ export function CreateJobView({ onBack, onSuccess }: CreateJobViewProps) {
                   maxLength={5000}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  {formData.description.length}/5000 characters • Will be stored on Walrus
+                  {formData.description.length}/5000 characters
+                  {/* TODO: RESTORE WALRUS - Add back: • Will be stored on Walrus */}
                 </p>
               </div>
             </div>
@@ -804,7 +838,9 @@ export function CreateJobView({ onBack, onSuccess }: CreateJobViewProps) {
                   <div className="pt-4 border-t">
                     <h4 className="font-semibold mb-2">What happens next?</h4>
                     <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                      {/* TODO: RESTORE WALRUS - Uncomment this when restoring Walrus
                       <li>Job description will be uploaded to Walrus (decentralized storage)</li>
+                      */}
                       <li>Escrow funds will be locked in smart contract</li>
                       <li>Job will appear in marketplace for freelancers</li>
                       <li>You'll receive JobCap NFT to manage the job</li>
@@ -823,12 +859,17 @@ export function CreateJobView({ onBack, onSuccess }: CreateJobViewProps) {
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                         <div className="flex-1">
                           <h4 className="font-semibold text-blue-900">Creating Your Job</h4>
-                          <p className="text-sm text-blue-700">{uploadProgress || "Processing..."}</p>
+                          <p className="text-sm text-blue-700">
+                            {creatingJob ? "Creating job and locking escrow..." :
+                             addingMilestones ? "Adding milestones..." :
+                             "Processing..."}
+                          </p>
                         </div>
                       </div>
 
                       {/* Progress Steps */}
                       <div className="space-y-2 pl-11">
+                        {/* TODO: RESTORE WALRUS - Uncomment this step when restoring Walrus
                         <div className={`flex items-center gap-2 text-sm ${uploadingDescription ? 'text-blue-900 font-medium' : 'text-blue-600'}`}>
                           {uploadingDescription ? (
                             <div className="h-2 w-2 rounded-full bg-blue-600 animate-pulse"></div>
@@ -839,11 +880,12 @@ export function CreateJobView({ onBack, onSuccess }: CreateJobViewProps) {
                           )}
                           <span>Upload description to Walrus</span>
                         </div>
+                        */}
 
                         <div className={`flex items-center gap-2 text-sm ${creatingJob ? 'text-blue-900 font-medium' : 'text-blue-600'}`}>
                           {creatingJob ? (
                             <div className="h-2 w-2 rounded-full bg-blue-600 animate-pulse"></div>
-                          ) : (!uploadingDescription && descriptionBlobId) ? (
+                          ) : isSubmitting && !creatingJob && !addingMilestones ? (
                             <CheckCircle className="h-4 w-4 text-green-600" />
                           ) : (
                             <div className="h-2 w-2 rounded-full border-2 border-blue-300"></div>
@@ -855,7 +897,7 @@ export function CreateJobView({ onBack, onSuccess }: CreateJobViewProps) {
                           <div className={`flex items-center gap-2 text-sm ${addingMilestones ? 'text-blue-900 font-medium' : 'text-blue-600'}`}>
                             {addingMilestones ? (
                               <div className="h-2 w-2 rounded-full bg-blue-600 animate-pulse"></div>
-                            ) : (!creatingJob && !uploadingDescription) ? (
+                            ) : !creatingJob && !addingMilestones && isSubmitting ? (
                               <CheckCircle className="h-4 w-4 text-green-600" />
                             ) : (
                               <div className="h-2 w-2 rounded-full border-2 border-blue-300"></div>
@@ -868,7 +910,7 @@ export function CreateJobView({ onBack, onSuccess }: CreateJobViewProps) {
                       <Alert className="bg-white border-blue-300">
                         <AlertCircle className="h-4 w-4 text-blue-600" />
                         <AlertDescription className="text-sm text-blue-800">
-                          Please approve the transactions in your wallet. This may require {formData.milestones.length > 0 ? formData.milestones.length + 3 : 3} signatures.
+                          Please approve the transactions in your wallet. This may require {formData.milestones.length > 0 ? formData.milestones.length + 1 : 1} signature{formData.milestones.length > 0 ? 's' : ''}.
                         </AlertDescription>
                       </Alert>
                     </div>
@@ -899,10 +941,10 @@ export function CreateJobView({ onBack, onSuccess }: CreateJobViewProps) {
                 {isSubmitting ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    {uploadingDescription && "Uploading to Walrus..."}
-                    {creatingJob && "Creating Job..."}
-                    {addingMilestones && `Adding Milestones...`}
-                    {!uploadingDescription && !creatingJob && !addingMilestones && "Processing..."}
+                    {/* TODO: RESTORE WALRUS - Add back uploadingDescription check */}
+                    {creatingJob ? "Creating Job..." :
+                     addingMilestones ? "Adding Milestones..." :
+                     "Processing..."}
                   </>
                 ) : (
                   <>

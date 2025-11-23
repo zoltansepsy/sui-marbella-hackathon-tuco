@@ -19,6 +19,7 @@ interface JobListProps {
   jobs: JobData[];
   onJobClick?: (job: JobData) => void;
   isLoading?: boolean;
+  currentUserAddress?: string; // Pass to JobCard to show "APPLIED" badge
 }
 
 /**
@@ -42,7 +43,7 @@ function JobCardSkeleton() {
   );
 }
 
-export function JobList({ jobs, onJobClick, isLoading }: JobListProps) {
+export function JobList({ jobs, onJobClick, isLoading, currentUserAddress }: JobListProps) {
   // Loading state with skeletons
   if (isLoading) {
     return (
@@ -71,6 +72,7 @@ export function JobList({ jobs, onJobClick, isLoading }: JobListProps) {
           key={job.objectId}
           job={job}
           onClick={() => onJobClick?.(job)}
+          currentUserAddress={currentUserAddress}
         />
       ))}
     </div>

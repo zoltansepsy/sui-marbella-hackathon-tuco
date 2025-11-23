@@ -11,6 +11,7 @@ import { Resources } from "./Resources";
 import { MyJobsView } from "./components/job/MyJobsView";
 import { JobMarketplaceView } from "./JobMarketplaceView";
 import { CreateJobView } from "./components/job/CreateJobView";
+import { ClientJobDetailView } from "./components/job/ClientJobDetailView";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useView } from "./contexts/ViewContext";
@@ -18,7 +19,7 @@ import { useView } from "./contexts/ViewContext";
 export default function Home() {
   const currentAccount = useCurrentAccount();
   const [counterId, setCounter] = useState<string | null>(null);
-  const { view, setView } = useView();
+  const { view, setView, selectedJobId, setSelectedJobId } = useView();
 
   useEffect(() => {
     const hash = window.location.hash.slice(1);
@@ -179,8 +180,7 @@ export default function Home() {
                     <MyJobsView
                       onBack={() => setView("home")}
                       onViewJob={(jobId) => {
-                        // TODO: Navigate to job detail view
-                        console.log("View job:", jobId);
+                        setSelectedJobId?.(jobId);
                         setView("jobDetail");
                       }}
                     />
@@ -205,13 +205,14 @@ export default function Home() {
                     </div>
                   )}
 
-                  {view === "jobDetail" && (
-                    <div className="text-center py-12">
-                      <h2 className="text-2xl font-bold mb-4">Job Details</h2>
-                      <p className="text-muted-foreground mb-4">View job details (Coming Soon)</p>
-                      <p className="text-sm text-muted-foreground">DEV 3: Implement JobDetailView component</p>
-                      <Button onClick={() => setView("marketplace")} className="mt-4">Back to Marketplace</Button>
-                    </div>
+                  {view === "jobDetail" && selectedJobId && (
+                    <ClientJobDetailView
+                      jobId={selectedJobId}
+                      onBack={() => {
+                        setSelectedJobId?.("");
+                        setView("myJobs");
+                      }}
+                    />
                   )}
 
                   {view === "createCounter" && (

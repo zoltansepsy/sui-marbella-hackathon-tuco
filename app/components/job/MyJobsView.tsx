@@ -22,14 +22,15 @@ interface MyJobsViewProps {
 export function MyJobsView({ onBack, onViewJob }: MyJobsViewProps) {
   const currentAccount = useCurrentAccount();
   const { jobs, isPending, error } = useJobsByClient(currentAccount?.address);
-  const [filter, setFilter] = useState<"all" | "open" | "active" | "completed">("all");
+  const [filter, setFilter] = useState<"all" | "open" | "active" | "completed" | "cancelled">("all");
 
   // Filter jobs based on selected filter
   const filteredJobs = jobs.filter((job) => {
     if (filter === "all") return true;
     if (filter === "open") return job.state === JobState.OPEN || job.state === JobState.ASSIGNED;
     if (filter === "active") return job.state === JobState.IN_PROGRESS || job.state === JobState.SUBMITTED || job.state === JobState.AWAITING_REVIEW;
-    if (filter === "completed") return job.state === JobState.COMPLETED || job.state === JobState.CANCELLED;
+    if (filter === "completed") return job.state === JobState.COMPLETED;
+    if (filter === "cancelled") return job.state === JobState.CANCELLED;
     return true;
   });
 
@@ -54,7 +55,7 @@ export function MyJobsView({ onBack, onViewJob }: MyJobsViewProps) {
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Jobs</CardTitle>
@@ -93,6 +94,16 @@ export function MyJobsView({ onBack, onViewJob }: MyJobsViewProps) {
             </div>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Cancelled</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-400">
+              {jobs.filter(j => j.state === JobState.CANCELLED).length}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
@@ -128,6 +139,14 @@ export function MyJobsView({ onBack, onViewJob }: MyJobsViewProps) {
           className={filter === "completed" ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}
         >
           Completed
+        </Button>
+        <Button
+          variant={filter === "cancelled" ? "default" : "outline"}
+          onClick={() => setFilter("cancelled")}
+          size="sm"
+          className={filter === "cancelled" ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}
+        >
+          Cancelled
         </Button>
       </div>
 

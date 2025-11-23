@@ -162,24 +162,34 @@ export function JobDetailView({ jobId, open, onClose, onApplySuccess }: JobDetai
     }
   };
 
-  // Get state badge variant
-  const getStateBadgeVariant = (state: JobState): "default" | "success" | "warning" | "destructive" | "secondary" => {
+  // Get state badge variant and label
+  // Shows "APPLIED" if job is OPEN but user has applied
+  const getStateBadge = (state: JobState, hasApplied: boolean) => {
+    // Special case: If job is OPEN but user has applied, show "APPLIED"
+    if (state === JobState.OPEN && hasApplied) {
+      return {
+        variant: "default" as const,
+        label: "APPLIED"
+      };
+    }
+
+    // Normal state badges
     switch (state) {
       case JobState.OPEN:
-        return "success";
+        return { variant: "success" as const, label: JobState[state] };
       case JobState.ASSIGNED:
       case JobState.IN_PROGRESS:
-        return "default";
+        return { variant: "default" as const, label: JobState[state] };
       case JobState.SUBMITTED:
       case JobState.AWAITING_REVIEW:
-        return "warning";
+        return { variant: "warning" as const, label: JobState[state] };
       case JobState.COMPLETED:
-        return "secondary";
+        return { variant: "secondary" as const, label: JobState[state] };
       case JobState.CANCELLED:
       case JobState.DISPUTED:
-        return "destructive";
+        return { variant: "destructive" as const, label: JobState[state] };
       default:
-        return "default";
+        return { variant: "default" as const, label: JobState[state] };
     }
   };
 
@@ -212,9 +222,14 @@ export function JobDetailView({ jobId, open, onClose, onApplySuccess }: JobDetai
                 <div className="flex-1">
                   <DialogTitle className="text-2xl mb-2">{job.title}</DialogTitle>
                   <DialogDescription className="flex items-center gap-2 flex-wrap">
-                    <Badge variant={getStateBadgeVariant(job.state)}>
-                      {JobState[job.state]}
-                    </Badge>
+                    {(() => {
+                      const badge = getStateBadge(job.state, hasApplied);
+                      return (
+                        <Badge variant={badge.variant}>
+                          {badge.label}
+                        </Badge>
+                      );
+                    })()}
                     {isDeadlineApproaching(job.deadline) && !isDeadlinePassed(job.deadline) && (
                       <Badge variant="warning">Urgent</Badge>
                     )}

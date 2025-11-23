@@ -331,7 +331,7 @@ export class JobService {
       // Parse milestones table
       // Handle Option types
 
-      return {
+      const jobData = {
         objectId: jobId,
         client: fields.client,
         freelancer: fields.freelancer,
@@ -346,6 +346,11 @@ export class JobService {
         deadline: Number(fields.deadline),
         deliverableBlobIds: fields.deliverable_blob_ids.map(vectorU8ToString),
       };
+
+      // Debug log to verify correct state is fetched
+      console.log(`📋 Job ${jobId.slice(0, 8)}... state: ${JobState[jobData.state]} (${jobData.state})`);
+
+      return jobData;
     } catch (error) {
       console.error("Error fetching job:", error);
       return null;
@@ -361,28 +366,63 @@ export class JobService {
    */
   async getJobsByClient(clientAddress: string): Promise<JobData[]> {
     try {
+      console.log(`🔍 getJobsByClient: Fetching jobs for client ${clientAddress.slice(0, 8)}...`);
+
       // Use event indexer to query jobs by client
       const indexer = createJobEventIndexer(this.suiClient, this.packageId);
       const jobEvents = await indexer.queryJobsByClient(clientAddress);
 
-      // Convert event data to full JobData
-      // For now, use event data directly. Optionally fetch full Job objects for current state.
-      const jobs: JobData[] = jobEvents.map((event) => ({
-        objectId: event.jobId,
-        client: event.client,
-        freelancer: event.freelancer || undefined,
-        title: event.title,
-        descriptionBlobId: event.descriptionBlobId,
-        budget: event.budget,
-        state: event.state,
-        milestones: [], // TODO: Fetch from Job object if needed
-        milestoneCount: event.milestoneCount,
-        applicants: [],
-        createdAt: event.timestamp,
-        deadline: event.deadline,
-        deliverableBlobIds: [],
-      }));
+      console.log(`📋 getJobsByClient: Found ${jobEvents.length} jobs from events`);
 
+      // Fetch actual Job objects to get current state (events only show creation state)
+      const jobs: JobData[] = [];
+      for (const event of jobEvents) {
+        try {
+          const jobData = await this.getJob(event.jobId);
+          if (jobData) {
+            jobs.push(jobData);
+            console.log(`✅ Job ${event.jobId.slice(0, 8)}... fetched with state: ${JobState[jobData.state]}`);
+          } else {
+            console.warn(`⚠️ Job ${event.jobId.slice(0, 8)}... not found, using event data`);
+            // Fallback to event data if job object not found
+            jobs.push({
+              objectId: event.jobId,
+              client: event.client,
+              freelancer: event.freelancer || undefined,
+              title: event.title,
+              descriptionBlobId: event.descriptionBlobId,
+              budget: event.budget,
+              state: event.state,
+              milestones: [],
+              milestoneCount: event.milestoneCount,
+              applicants: [],
+              createdAt: event.timestamp,
+              deadline: event.deadline,
+              deliverableBlobIds: [],
+            });
+          }
+        } catch (error) {
+          console.error(`❌ Error fetching job ${event.jobId.slice(0, 8)}...:`, error);
+          // Fallback to event data
+          jobs.push({
+            objectId: event.jobId,
+            client: event.client,
+            freelancer: event.freelancer || undefined,
+            title: event.title,
+            descriptionBlobId: event.descriptionBlobId,
+            budget: event.budget,
+            state: event.state,
+            milestones: [],
+            milestoneCount: event.milestoneCount,
+            applicants: [],
+            createdAt: event.timestamp,
+            deadline: event.deadline,
+            deliverableBlobIds: [],
+          });
+        }
+      }
+
+      console.log(`✅ getJobsByClient: Returning ${jobs.length} jobs`);
       return jobs;
     } catch (error) {
       console.error("Error fetching client jobs:", error);
@@ -443,7 +483,7 @@ export class JobService {
         state: event.state,
         milestones: [],
         milestoneCount: event.milestoneCount,
-        applicants: [],
+        applicants: event.applicants || [], // Use applicants from verified job data
         createdAt: event.timestamp,
         deadline: event.deadline,
         deliverableBlobIds: [],
