@@ -18,7 +18,7 @@ module zk_freelance::job_escrow {
     use sui::table::{Self, Table};
     use sui::event;
     use sui::clock::{Self, Clock};
-    use zk_freelance::profile_nft::{Self, Profile};
+    use zk_freelance::profile_nft::{Self, Profile, JobProfileUpdateCap};
 
     // ======== Constants ========
 
@@ -73,6 +73,8 @@ module zk_freelance::job_escrow {
         deadline: u64,
         /// Deliverable blob IDs (encrypted with Seal)
         deliverable_blob_ids: vector<vector<u8>>,
+        /// JobProfileUpdateCap from applicants (address -> capability)
+        applicant_caps: Table<address, JobProfileUpdateCap>,
     }
 
     /// Milestone struct
@@ -236,6 +238,7 @@ module zk_freelance::job_escrow {
             created_at: timestamp,
             deadline,
             deliverable_blob_ids: vector::empty(),
+            applicant_caps: table::new(ctx),
         };
 
         // Create JobCap
@@ -257,7 +260,8 @@ module zk_freelance::job_escrow {
             timestamp,
         });
 
-        // Update client profile with active job
+        // Update client profile with active job and increment total_jobs
+        profile_nft::increment_own_total_jobs(client_profile, clock, ctx);
         profile_nft::add_active_job(client_profile, job_id, clock);
 
         // Share job (makes it accessible to all)
@@ -270,8 +274,11 @@ module zk_freelance::job_escrow {
     /// Apply for a job as freelancer
     ///
     /// Validates job is open, freelancer hasn't applied, adds to applicants
+    /// Accepts JobProfileUpdateCap which will be used later to increment total_jobs
     public fun apply_for_job(
         job: &mut Job,
+        freelancer_profile: &Profile,
+        job_profile_update_cap: JobProfileUpdateCap,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
@@ -283,9 +290,13 @@ module zk_freelance::job_escrow {
         assert!(!is_deadline_passed(job, clock), EDeadlinePassed);
         assert!(sender != job.client, ENotAuthorized);
         assert!(!vector::contains(&job.applicants, &sender), EAlreadyApplied);
+        assert!(profile_nft::get_owner(freelancer_profile) == sender, ENotAuthorized);
 
         // Add to applicants
         vector::push_back(&mut job.applicants, sender);
+
+        // Store the capability (will be used in assign_freelancer)
+        table::add(&mut job.applicant_caps, sender, job_profile_update_cap);
 
         // Emit event
         event::emit(FreelancerApplied {
@@ -298,6 +309,7 @@ module zk_freelance::job_escrow {
     /// Assign freelancer to job (client only)
     ///
     /// Validates JobCap, assigns freelancer from applicants, transitions to ASSIGNED
+    /// Uses the stored JobProfileUpdateCap to increment freelancer's total_jobs
     public fun assign_freelancer(
         job: &mut Job,
         cap: &JobCap,
@@ -316,10 +328,17 @@ module zk_freelance::job_escrow {
         assert!(vector::contains(&job.applicants, &freelancer), ENotAuthorized);
         assert!(profile_nft::get_owner(freelancer_profile) == freelancer, ENotAuthorized);
 
+        // Verify freelancer has provided JobProfileUpdateCap
+        assert!(table::contains(&job.applicant_caps, freelancer), ENotAuthorized);
+
         // State transition
         let old_state = job.state;
         job.state = STATE_ASSIGNED;
         job.freelancer = option::some(freelancer);
+
+        // Get the capability and use it to increment total_jobs
+        let job_profile_cap = table::borrow(&job.applicant_caps, freelancer);
+        profile_nft::increment_total_jobs(freelancer_profile, job_profile_cap, clock);
 
         // Emit events
         event::emit(FreelancerAssigned {
