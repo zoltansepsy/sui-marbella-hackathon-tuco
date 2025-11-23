@@ -404,25 +404,25 @@ export function FreelancerJobDetailView({ jobId, onBack }: FreelancerJobDetailVi
       {job.state === JobState.COMPLETED && (
         <Card className="border-green-200 bg-green-50">
           <CardHeader>
-            <CardTitle className="text-green-800">Job Completed!</CardTitle>
-            <CardDescription>Payment has been released</CardDescription>
+            <CardTitle className="text-green-900">Job Completed!</CardTitle>
+            <CardDescription className="text-green-700">Payment has been released</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <Alert className="bg-white border-green-300">
                 <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-800">
-                  Congratulations! The client approved your work and payment of {formatSUI(job.budget)} has been released to your wallet.
+                <AlertDescription className="text-green-900">
+                  Congratulations! The client approved your work and payment of <span className="font-semibold">{formatSUI(job.budget)}</span> has been released to your wallet.
                 </AlertDescription>
               </Alert>
 
               {job.deliverableBlobIds.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium mb-2">Deliverables:</p>
+                <div className="bg-white p-3 rounded-lg border border-green-200">
+                  <p className="text-sm font-medium text-green-900 mb-2">Deliverables:</p>
                   {job.deliverableBlobIds.map((blobId, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 border rounded mb-2">
-                      <p className="text-xs font-mono">{blobId}</p>
-                      <Button size="sm" variant="outline">
+                    <div key={index} className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded mb-2">
+                      <p className="text-xs font-mono text-green-900">{blobId}</p>
+                      <Button size="sm" variant="outline" className="border-green-300 text-green-900 hover:bg-green-100">
                         <Download className="h-3 w-3 mr-1" />
                         View
                       </Button>
