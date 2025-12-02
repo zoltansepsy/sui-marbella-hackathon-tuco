@@ -7,13 +7,13 @@ set +e
 
 # ========== CONFIGURATION ==========
 # MODIFY THESE ADDRESSES FOR YOUR TEST
-#CLIENT_ADDRESS="0xYOUR_CLIENT_ADDRESS_HERE"
 CLIENT_ADDRESS="0x036a00032023f00dfe8a64e1e1f254e740ce5ef6ed92e8aed344bff23a71013d"
-#FREELANCER_ADDRESS="0xYOUR_FREELANCER_ADDRESS_HERE"
 FREELANCER_ADDRESS="0xfdcb8d759f590a675891052e2f7b5bef56e5f4e348ce55003ce4194cafdea65a"
 
 PACKAGE_ID="0x7d5a217972f2eab3f40adc9603ac8f94bb6917ccc1e0901aeeb9150dc7b5075d"
 IDENTITY_REGISTRY_ID="0x6bfcca290d5c0cac1e58805a9c1d9e97f93c08ccf333962341dc920e9adadc6d"
+# ===================================
+
 CLOCK="0x6"
 
 # Colors for output
@@ -274,40 +274,13 @@ echo -e "\n${GREEN}[6/7] Applying for job as FREELANCER...${NC}"
 
 sui client switch --address $FREELANCER_ADDRESS
 
-# First create JobProfileUpdateCap
-echo "Creating JobProfileUpdateCap..."
-CAP_RESULT=$(sui client call \
-    --package $PACKAGE_ID \
-    --module profile_nft \
-    --function create_job_profile_update_cap \
-    --args \
-        $FREELANCER_PROFILE_ID \
-    --gas-budget 50000000 \
-    --json 2>&1) || true
-
-echo "$CAP_RESULT"
-sleep 2
-
-# Get the JobProfileUpdateCap ID - exact match
-JOB_PROFILE_UPDATE_CAP=$(sui client objects --json | extract_json | jq -r '.[] | select(.data.type | endswith("::JobProfileUpdateCap")) | .data.objectId' | head -1)
-echo "JOB_PROFILE_UPDATE_CAP: $JOB_PROFILE_UPDATE_CAP"
-
-if [ -z "$JOB_PROFILE_UPDATE_CAP" ] || [ "$JOB_PROFILE_UPDATE_CAP" == "null" ]; then
-    echo -e "${RED}ERROR: Failed to get JOB_PROFILE_UPDATE_CAP${NC}"
-    exit 1
-fi
-
-# Apply for job
-echo "Applying for job..."
-APPLY_RESULT=$(sui client call \
-    --package $PACKAGE_ID \
-    --module job_escrow \
-    --function apply_for_job \
-    --args \
-        $JOB_ID \
-        $FREELANCER_PROFILE_ID \
-        $JOB_PROFILE_UPDATE_CAP \
-        $CLOCK \
+# Use PTB to create JobProfileUpdateCap and apply_for_job in a single transaction
+# This is necessary because create_job_profile_update_cap returns a value that must be consumed
+echo "Creating JobProfileUpdateCap and applying for job (PTB)..."
+APPLY_RESULT=$(sui client ptb \
+    --move-call ${PACKAGE_ID}::profile_nft::create_job_profile_update_cap @${FREELANCER_PROFILE_ID} \
+    --assign cap \
+    --move-call ${PACKAGE_ID}::job_escrow::apply_for_job @${JOB_ID} @${FREELANCER_PROFILE_ID} cap @${CLOCK} \
     --gas-budget 100000000 \
     --json 2>&1) || true
 
