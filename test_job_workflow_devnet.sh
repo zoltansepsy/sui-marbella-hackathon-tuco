@@ -2,7 +2,8 @@
 # test_job_workflow_devnet.sh
 # Tests the job workflow on devnet to reproduce the ownership error
 
-set -e
+# Don't exit on error - we want to see what happens
+set +e
 
 # ========== CONFIGURATION ==========
 # MODIFY THESE ADDRESSES FOR YOUR TEST
@@ -20,6 +21,12 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
+
+# Helper function to extract JSON from sui client output (removes warning lines)
+extract_json() {
+    # Find the first line starting with '{' and output from there
+    awk '/^{/,0'
+}
 
 echo -e "${YELLOW}========================================${NC}"
 echo -e "${YELLOW}Job Workflow Devnet Test${NC}"
@@ -104,8 +111,8 @@ sui client switch --address $CLIENT_ADDRESS
 # ========== STEP 3: Create CLIENT profile ==========
 echo -e "\n${GREEN}[3/7] Creating CLIENT profile...${NC}"
 
-# Check if client already has a profile
-CLIENT_PROFILE_ID=$(sui client objects --json 2>/dev/null | jq -r '.[] | select(.data.type | contains("profile_nft::Profile")) | .data.objectId' | head -1)
+# Check if client already has a profile (exact match to avoid ProfileCap)
+CLIENT_PROFILE_ID=$(sui client objects --json 2>/dev/null | jq -r '.[] | select(.data.type | endswith("::Profile")) | .data.objectId' | head -1)
 
 if [ -n "$CLIENT_PROFILE_ID" ] && [ "$CLIENT_PROFILE_ID" != "null" ]; then
     echo "Client already has profile: $CLIENT_PROFILE_ID"
@@ -129,17 +136,22 @@ else
         --gas-budget 100000000
 
     sleep 3
-    CLIENT_PROFILE_ID=$(sui client objects --json 2>/dev/null | jq -r '.[] | select(.data.type | contains("profile_nft::Profile")) | .data.objectId' | head -1)
+    CLIENT_PROFILE_ID=$(sui client objects --json 2>/dev/null | jq -r '.[] | select(.data.type | endswith("::Profile")) | .data.objectId' | head -1)
 fi
 
 echo "CLIENT_PROFILE_ID: $CLIENT_PROFILE_ID"
+
+if [ -z "$CLIENT_PROFILE_ID" ] || [ "$CLIENT_PROFILE_ID" == "null" ]; then
+    echo -e "${RED}ERROR: Failed to get CLIENT_PROFILE_ID${NC}"
+    exit 1
+fi
 
 # ========== STEP 4: Create FREELANCER profile ==========
 echo -e "\n${GREEN}[4/7] Creating FREELANCER profile...${NC}"
 
 sui client switch --address $FREELANCER_ADDRESS
 
-FREELANCER_PROFILE_ID=$(sui client objects --json 2>/dev/null | jq -r '.[] | select(.data.type | contains("profile_nft::Profile")) | .data.objectId' | head -1)
+FREELANCER_PROFILE_ID=$(sui client objects --json 2>/dev/null | jq -r '.[] | select(.data.type | endswith("::Profile")) | .data.objectId' | head -1)
 
 if [ -n "$FREELANCER_PROFILE_ID" ] && [ "$FREELANCER_PROFILE_ID" != "null" ]; then
     echo "Freelancer already has profile: $FREELANCER_PROFILE_ID"
@@ -163,10 +175,15 @@ else
         --gas-budget 100000000
 
     sleep 3
-    FREELANCER_PROFILE_ID=$(sui client objects --json 2>/dev/null | jq -r '.[] | select(.data.type | contains("profile_nft::Profile")) | .data.objectId' | head -1)
+    FREELANCER_PROFILE_ID=$(sui client objects --json 2>/dev/null | jq -r '.[] | select(.data.type | endswith("::Profile")) | .data.objectId' | head -1)
 fi
 
 echo "FREELANCER_PROFILE_ID: $FREELANCER_PROFILE_ID"
+
+if [ -z "$FREELANCER_PROFILE_ID" ] || [ "$FREELANCER_PROFILE_ID" == "null" ]; then
+    echo -e "${RED}ERROR: Failed to get FREELANCER_PROFILE_ID${NC}"
+    exit 1
+fi
 
 # Switch back to client
 sui client switch --address $CLIENT_ADDRESS
@@ -217,18 +234,40 @@ echo "$JOB_RESULT"
 
 sleep 3
 
-# Get Job ID (shared object)
-JOB_ID=$(echo "$JOB_RESULT" | jq -r '.objectChanges[] | select(.objectType | contains("job_escrow::Job")) | .objectId' 2>/dev/null)
+# Extract only JSON from result (remove warning lines)
+JOB_JSON=$(echo "$JOB_RESULT" | extract_json)
+
+# Get Job ID (shared object) - try multiple extraction methods
+# Method 1: From objectChanges (look for ::job_escrow::Job type)
+JOB_ID=$(echo "$JOB_JSON" | jq -r '.objectChanges[] | select(.objectType | contains("job_escrow::Job")) | .objectId' 2>/dev/null | head -1)
+
+# Method 2: From events if method 1 failed
 if [ -z "$JOB_ID" ] || [ "$JOB_ID" == "null" ]; then
-    # Try alternative parsing
-    JOB_ID=$(sui client objects --json | jq -r '.[] | select(.data.type | contains("job_escrow::Job")) | .data.objectId' | head -1)
+    echo "Trying to extract JOB_ID from events..."
+    JOB_ID=$(echo "$JOB_JSON" | jq -r '.events[0].parsedJson.job_id' 2>/dev/null)
 fi
 
-# Get JobCap ID (owned by client)
-JOB_CAP_ID=$(sui client objects --json | jq -r '.[] | select(.data.type | contains("job_escrow::JobCap")) | .data.objectId' | head -1)
+# Method 3: From shared object in created array
+if [ -z "$JOB_ID" ] || [ "$JOB_ID" == "null" ]; then
+    echo "Trying to extract JOB_ID from created shared objects..."
+    JOB_ID=$(echo "$JOB_JSON" | jq -r '.effects.created[] | select(.owner.Shared) | .reference.objectId' 2>/dev/null | head -1)
+fi
+
+# Get JobCap ID (owned by client) - exact match to ::JobCap
+JOB_CAP_ID=$(sui client objects --json | jq -r '.[] | select(.data.type | endswith("::JobCap")) | .data.objectId' | head -1)
 
 echo "JOB_ID: $JOB_ID"
 echo "JOB_CAP_ID: $JOB_CAP_ID"
+
+if [ -z "$JOB_ID" ] || [ "$JOB_ID" == "null" ]; then
+    echo -e "${RED}ERROR: Failed to get JOB_ID${NC}"
+    exit 1
+fi
+
+if [ -z "$JOB_CAP_ID" ] || [ "$JOB_CAP_ID" == "null" ]; then
+    echo -e "${RED}ERROR: Failed to get JOB_CAP_ID${NC}"
+    exit 1
+fi
 
 # ========== STEP 6: Apply for job as FREELANCER ==========
 echo -e "\n${GREEN}[6/7] Applying for job as FREELANCER...${NC}"
@@ -249,9 +288,14 @@ CAP_RESULT=$(sui client call \
 echo "$CAP_RESULT"
 sleep 2
 
-# Get the JobProfileUpdateCap ID
-JOB_PROFILE_UPDATE_CAP=$(sui client objects --json | jq -r '.[] | select(.data.type | contains("JobProfileUpdateCap")) | .data.objectId' | head -1)
+# Get the JobProfileUpdateCap ID - exact match
+JOB_PROFILE_UPDATE_CAP=$(sui client objects --json | jq -r '.[] | select(.data.type | endswith("::JobProfileUpdateCap")) | .data.objectId' | head -1)
 echo "JOB_PROFILE_UPDATE_CAP: $JOB_PROFILE_UPDATE_CAP"
+
+if [ -z "$JOB_PROFILE_UPDATE_CAP" ] || [ "$JOB_PROFILE_UPDATE_CAP" == "null" ]; then
+    echo -e "${RED}ERROR: Failed to get JOB_PROFILE_UPDATE_CAP${NC}"
+    exit 1
+fi
 
 # Apply for job
 echo "Applying for job..."
