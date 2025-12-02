@@ -24,8 +24,8 @@ NC='\033[0m' # No Color
 
 # Helper function to extract JSON from sui client output (removes warning lines)
 extract_json() {
-    # Find the first line starting with '{' and output from there
-    awk '/^{/,0'
+    # Remove warning lines that appear before JSON output
+    grep -v '^\[warning\]'
 }
 
 echo -e "${YELLOW}========================================${NC}"
@@ -238,8 +238,8 @@ sleep 3
 JOB_JSON=$(echo "$JOB_RESULT" | extract_json)
 
 # Get Job ID (shared object) - try multiple extraction methods
-# Method 1: From objectChanges (look for ::job_escrow::Job type)
-JOB_ID=$(echo "$JOB_JSON" | jq -r '.objectChanges[] | select(.objectType | contains("job_escrow::Job")) | .objectId' 2>/dev/null | head -1)
+# Method 1: From objectChanges (look for ::job_escrow::Job type - use endswith for exact match, not contains)
+JOB_ID=$(echo "$JOB_JSON" | jq -r '.objectChanges[] | select(.objectType | endswith("::job_escrow::Job")) | .objectId' 2>/dev/null | head -1)
 
 # Method 2: From events if method 1 failed
 if [ -z "$JOB_ID" ] || [ "$JOB_ID" == "null" ]; then
@@ -254,7 +254,7 @@ if [ -z "$JOB_ID" ] || [ "$JOB_ID" == "null" ]; then
 fi
 
 # Get JobCap ID (owned by client) - exact match to ::JobCap
-JOB_CAP_ID=$(sui client objects --json | jq -r '.[] | select(.data.type | endswith("::JobCap")) | .data.objectId' | head -1)
+JOB_CAP_ID=$(sui client objects --json | extract_json | jq -r '.[] | select(.data.type | endswith("::JobCap")) | .data.objectId' | head -1)
 
 echo "JOB_ID: $JOB_ID"
 echo "JOB_CAP_ID: $JOB_CAP_ID"
@@ -289,7 +289,7 @@ echo "$CAP_RESULT"
 sleep 2
 
 # Get the JobProfileUpdateCap ID - exact match
-JOB_PROFILE_UPDATE_CAP=$(sui client objects --json | jq -r '.[] | select(.data.type | endswith("::JobProfileUpdateCap")) | .data.objectId' | head -1)
+JOB_PROFILE_UPDATE_CAP=$(sui client objects --json | extract_json | jq -r '.[] | select(.data.type | endswith("::JobProfileUpdateCap")) | .data.objectId' | head -1)
 echo "JOB_PROFILE_UPDATE_CAP: $JOB_PROFILE_UPDATE_CAP"
 
 if [ -z "$JOB_PROFILE_UPDATE_CAP" ] || [ "$JOB_PROFILE_UPDATE_CAP" == "null" ]; then
