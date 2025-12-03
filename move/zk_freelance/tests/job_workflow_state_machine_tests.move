@@ -203,36 +203,35 @@ module zk_freelance::job_workflow_state_machine_tests {
             ts::return_to_sender(scenario, freelancer_profile);
         };
 
-        // Client assigns freelancer
+        // Client assigns freelancer (no profile needed - ownership fix)
         ts::next_tx(scenario, client_addr);
         {
             let mut job = ts::take_shared<Job>(scenario);
             let job_cap = ts::take_from_sender<JobCap>(scenario);
-            let mut freelancer_profile = ts::take_from_address<Profile>(scenario, freelancer_addr);
 
             job_escrow::assign_freelancer(
                 &mut job,
                 &job_cap,
                 freelancer_addr,
-                &mut freelancer_profile,
                 clock,
                 ts::ctx(scenario)
             );
 
             ts::return_shared(job);
             ts::return_to_sender(scenario, job_cap);
-            ts::return_to_address(freelancer_addr, freelancer_profile);
         };
     }
 
-    /// Freelancer starts the job
+    /// Freelancer starts the job (now includes profile update)
     fun start_job(freelancer_addr: address, scenario: &mut Scenario, clock: &Clock) {
         ts::next_tx(scenario, freelancer_addr);
         let mut job = ts::take_shared<Job>(scenario);
+        let mut freelancer_profile = ts::take_from_sender<Profile>(scenario);
 
-        job_escrow::start_job(&mut job, clock, ts::ctx(scenario));
+        job_escrow::start_job(&mut job, &mut freelancer_profile, clock, ts::ctx(scenario));
 
         ts::return_shared(job);
+        ts::return_to_sender(scenario, freelancer_profile);
     }
 
     /// Freelancer submits a milestone
@@ -346,13 +345,16 @@ module zk_freelance::job_workflow_state_machine_tests {
 
         ts::next_tx(&mut scenario, CLIENT);
         verify_job_state(STATE_ASSIGNED, JOB_BUDGET, &scenario);
-        verify_profile_stats(FREELANCER, 1, 0, 0, &scenario);
+        // Note: total_jobs is now incremented in start_job, not assign_freelancer
+        verify_profile_stats(FREELANCER, 0, 0, 0, &scenario);
 
         // Phase 4: Start job (IN_PROGRESS)
         start_job(FREELANCER, &mut scenario, &clock);
 
         ts::next_tx(&mut scenario, CLIENT);
         verify_job_state(STATE_IN_PROGRESS, JOB_BUDGET, &scenario);
+        // After start_job, total_jobs should be 1
+        verify_profile_stats(FREELANCER, 1, 0, 0, &scenario);
 
         // Phase 5: Submit milestone (SUBMITTED)
         submit_milestone(0, FREELANCER, &mut scenario, &clock);
@@ -518,8 +520,10 @@ module zk_freelance::job_workflow_state_machine_tests {
         verify_job_state(STATE_CANCELLED, 0, &scenario);
 
         // Both profiles should be updated correctly
+        // Note: Client's total_jobs = 1 (from create_job)
+        // Freelancer's total_jobs = 0 (never called start_job, so increment never happened)
         verify_profile_stats(CLIENT, 1, 0, 0, &scenario);
-        verify_profile_stats(FREELANCER, 1, 0, 0, &scenario);
+        verify_profile_stats(FREELANCER, 0, 0, 0, &scenario);
 
         clock::destroy_for_testing(clock);
         ts::end(scenario);
@@ -620,25 +624,22 @@ module zk_freelance::job_workflow_state_machine_tests {
             ts::return_to_sender(&mut scenario, freelancer_profile);
         };
 
-        // Client can assign FREELANCER
+        // Client can assign FREELANCER (no profile needed - ownership fix)
         ts::next_tx(&mut scenario, CLIENT);
         {
             let mut job = ts::take_shared<Job>(&mut scenario);
             let job_cap = ts::take_from_sender<JobCap>(&mut scenario);
-            let mut freelancer_profile = ts::take_from_address<Profile>(&mut scenario, FREELANCER);
 
             job_escrow::assign_freelancer(
                 &mut job,
                 &job_cap,
                 FREELANCER,
-                &mut freelancer_profile,
                 &clock,
                 ts::ctx(&mut scenario)
             );
 
             ts::return_shared(job);
             ts::return_to_sender(&mut scenario, job_cap);
-            ts::return_to_address(FREELANCER, freelancer_profile);
         };
 
         ts::next_tx(&mut scenario, CLIENT);

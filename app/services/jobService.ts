@@ -100,14 +100,12 @@ export class JobService {
    * @param jobId Job object ID
    * @param jobCapId JobCap object ID
    * @param freelancerAddress Freelancer's address
-   * @param freelancerProfileId Freelancer's Profile object ID
    * @returns Transaction to sign and execute
    */
   assignFreelancerTransaction(
     jobId: string,
     jobCapId: string,
-    freelancerAddress: string,
-    freelancerProfileId: string
+    freelancerAddress: string
   ): Transaction {
     const tx = new Transaction();
 
@@ -116,7 +114,6 @@ export class JobService {
         tx.object(jobId),
         tx.object(jobCapId),
         tx.pure.address(freelancerAddress),
-        tx.object(freelancerProfileId), // Freelancer's Profile
         tx.object("0x6"), // Clock
       ],
       target: `${this.packageId}::job_escrow::assign_freelancer`,
@@ -129,13 +126,18 @@ export class JobService {
    * Start work on job (freelancer only)
    *
    * @param jobId Job object ID
+   * @param freelancerProfileId Freelancer's Profile object ID
    * @returns Transaction to sign and execute
    */
-  startJobTransaction(jobId: string): Transaction {
+  startJobTransaction(jobId: string, freelancerProfileId: string): Transaction {
     const tx = new Transaction();
 
     tx.moveCall({
-      arguments: [tx.object(jobId), tx.object("0x6")],
+      arguments: [
+        tx.object(jobId),
+        tx.object(freelancerProfileId), // Freelancer's Profile
+        tx.object("0x6"), // Clock
+      ],
       target: `${this.packageId}::job_escrow::start_job`,
     });
 

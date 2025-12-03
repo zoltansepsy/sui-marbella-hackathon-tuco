@@ -309,12 +309,11 @@ module zk_freelance::job_escrow {
     /// Assign freelancer to job (client only)
     ///
     /// Validates JobCap, assigns freelancer from applicants, transitions to ASSIGNED
-    /// Uses the stored JobProfileUpdateCap to increment freelancer's total_jobs
+    /// Profile updates (increment_total_jobs, add_active_job) moved to start_job
     public fun assign_freelancer(
         job: &mut Job,
         cap: &JobCap,
         freelancer: address,
-        freelancer_profile: &mut Profile,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
@@ -326,19 +325,14 @@ module zk_freelance::job_escrow {
         assert!(sender == job.client, ENotAuthorized);
         assert!(job.state == STATE_OPEN, EInvalidState);
         assert!(vector::contains(&job.applicants, &freelancer), ENotAuthorized);
-        assert!(profile_nft::get_owner(freelancer_profile) == freelancer, ENotAuthorized);
 
-        // Verify freelancer has provided JobProfileUpdateCap
+        // Verify freelancer has provided JobProfileUpdateCap (ensures they applied properly)
         assert!(table::contains(&job.applicant_caps, freelancer), ENotAuthorized);
 
         // State transition
         let old_state = job.state;
         job.state = STATE_ASSIGNED;
         job.freelancer = option::some(freelancer);
-
-        // Get the capability and use it to increment total_jobs
-        let job_profile_cap = table::borrow(&job.applicant_caps, freelancer);
-        profile_nft::increment_total_jobs(freelancer_profile, job_profile_cap, clock);
 
         // Emit events
         event::emit(FreelancerAssigned {
@@ -355,16 +349,15 @@ module zk_freelance::job_escrow {
             freelancer: option::some(freelancer),
             timestamp,
         });
-
-        // Update freelancer profile with active job
-        profile_nft::add_active_job(freelancer_profile, object::id(job), clock);
     }
 
     /// Start work on job (freelancer only)
     ///
     /// Validates assigned freelancer, transitions job to IN_PROGRESS
+    /// Updates freelancer profile (increment total_jobs, add active job)
     public fun start_job(
         job: &mut Job,
+        freelancer_profile: &mut Profile,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
@@ -375,6 +368,17 @@ module zk_freelance::job_escrow {
         assert!(job.state == STATE_ASSIGNED, EInvalidState);
         assert!(option::contains(&job.freelancer, &sender), EFreelancerNotAssigned);
         assert!(!is_deadline_passed(job, clock), EDeadlinePassed);
+
+        // Verify profile ownership - freelancer must pass their own profile
+        let freelancer = *option::borrow(&job.freelancer);
+        assert!(profile_nft::get_owner(freelancer_profile) == freelancer, ENotAuthorized);
+
+        // Get the stored cap and increment total_jobs
+        let job_profile_cap = table::borrow(&job.applicant_caps, freelancer);
+        profile_nft::increment_total_jobs(freelancer_profile, job_profile_cap, clock);
+
+        // Add job to freelancer's active jobs
+        profile_nft::add_active_job(freelancer_profile, object::id(job), clock);
 
         // State transition
         let old_state = job.state;

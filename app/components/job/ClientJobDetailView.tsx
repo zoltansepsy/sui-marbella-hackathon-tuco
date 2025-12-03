@@ -125,16 +125,11 @@ export function ClientJobDetailView({ jobId, onBack }: ClientJobDetailViewProps)
     setActionSuccess(null);
 
     try {
-      // TODO: Get freelancer profile ID
-      // For now, we'll need to fetch the freelancer's profile
-      // This is a placeholder - need to implement getProfileByOwner in service
-      const freelancerProfileId = "0x0"; // Placeholder
-
+      // No longer need freelancer profile - profile update now happens in start_job
       const tx = jobService.assignFreelancerTransaction(
         jobId,
         jobCapId,
-        freelancerAddress,
-        freelancerProfileId
+        freelancerAddress
       );
 
       signAndExecute(

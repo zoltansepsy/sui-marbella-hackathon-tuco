@@ -33,7 +33,7 @@ echo -e "${YELLOW}Job Workflow Devnet Test${NC}"
 echo -e "${YELLOW}========================================${NC}"
 
 # ========== STEP 0: Check dependencies ==========
-echo -e "\n${GREEN}[0/7] Checking dependencies...${NC}"
+echo -e "\n${GREEN}[0/8] Checking dependencies...${NC}"
 
 if ! command -v jq &> /dev/null; then
     echo -e "${RED}ERROR: 'jq' is not installed${NC}"
@@ -47,7 +47,7 @@ fi
 echo "jq: OK"
 
 # ========== STEP 1: Validate configuration ==========
-echo -e "\n${GREEN}[1/7] Validating configuration...${NC}"
+echo -e "\n${GREEN}[1/8] Validating configuration...${NC}"
 
 if [ "$CLIENT_ADDRESS" == "0xYOUR_CLIENT_ADDRESS_HERE" ] || [ "$FREELANCER_ADDRESS" == "0xYOUR_FREELANCER_ADDRESS_HERE" ]; then
     echo -e "${RED}ERROR: Please set CLIENT_ADDRESS and FREELANCER_ADDRESS at the top of the script${NC}"
@@ -86,7 +86,7 @@ echo "CLIENT_ADDRESS: $CLIENT_ADDRESS"
 echo "FREELANCER_ADDRESS: $FREELANCER_ADDRESS"
 
 # ========== STEP 2: Verify addresses exist in keystore ==========
-echo -e "\n${GREEN}[2/7] Verifying addresses in keystore...${NC}"
+echo -e "\n${GREEN}[2/8] Verifying addresses in keystore...${NC}"
 
 echo "Available addresses:"
 sui client addresses
@@ -109,7 +109,7 @@ sui client switch --address $FREELANCER_ADDRESS || {
 sui client switch --address $CLIENT_ADDRESS
 
 # ========== STEP 3: Create CLIENT profile ==========
-echo -e "\n${GREEN}[3/7] Creating CLIENT profile...${NC}"
+echo -e "\n${GREEN}[3/8] Creating CLIENT profile...${NC}"
 
 # Check if client already has a profile (exact match to avoid ProfileCap)
 CLIENT_PROFILE_ID=$(sui client objects --json 2>/dev/null | jq -r '.[] | select(.data.type | endswith("::Profile")) | .data.objectId' | head -1)
@@ -147,7 +147,7 @@ if [ -z "$CLIENT_PROFILE_ID" ] || [ "$CLIENT_PROFILE_ID" == "null" ]; then
 fi
 
 # ========== STEP 4: Create FREELANCER profile ==========
-echo -e "\n${GREEN}[4/7] Creating FREELANCER profile...${NC}"
+echo -e "\n${GREEN}[4/8] Creating FREELANCER profile...${NC}"
 
 sui client switch --address $FREELANCER_ADDRESS
 
@@ -189,7 +189,7 @@ fi
 sui client switch --address $CLIENT_ADDRESS
 
 # ========== STEP 5: Create a Job as CLIENT ==========
-echo -e "\n${GREEN}[5/7] Creating job as CLIENT...${NC}"
+echo -e "\n${GREEN}[5/8] Creating job as CLIENT...${NC}"
 
 # Get a coin for payment (1 SUI = 1000000000 MIST)
 CLIENT_COIN=$(sui client gas --json | jq -r '.[0].gasCoinId')
@@ -270,7 +270,7 @@ if [ -z "$JOB_CAP_ID" ] || [ "$JOB_CAP_ID" == "null" ]; then
 fi
 
 # ========== STEP 6: Apply for job as FREELANCER ==========
-echo -e "\n${GREEN}[6/7] Applying for job as FREELANCER...${NC}"
+echo -e "\n${GREEN}[6/8] Applying for job as FREELANCER...${NC}"
 
 sui client switch --address $FREELANCER_ADDRESS
 
@@ -290,19 +290,18 @@ sleep 2
 # Switch back to client
 sui client switch --address $CLIENT_ADDRESS
 
-# ========== STEP 7: Try to assign freelancer as CLIENT ==========
-echo -e "\n${GREEN}[7/7] Attempting to assign freelancer as CLIENT...${NC}"
-echo -e "${YELLOW}This should FAIL because CLIENT cannot access FREELANCER's profile!${NC}"
+# ========== STEP 7: Assign freelancer as CLIENT ==========
+echo -e "\n${GREEN}[7/8] Assigning freelancer as CLIENT...${NC}"
+echo -e "${YELLOW}This should now SUCCEED - freelancer profile is not needed for assign!${NC}"
 
 echo ""
 echo "Calling assign_freelancer with:"
 echo "  JOB_ID: $JOB_ID"
 echo "  JOB_CAP_ID: $JOB_CAP_ID"
 echo "  FREELANCER_ADDRESS: $FREELANCER_ADDRESS"
-echo "  FREELANCER_PROFILE_ID: $FREELANCER_PROFILE_ID (CLIENT doesn't own this!)"
 echo ""
 
-# This call will FAIL with ownership error
+# assign_freelancer no longer requires freelancer profile
 ASSIGN_RESULT=$(sui client call \
     --package $PACKAGE_ID \
     --module job_escrow \
@@ -311,33 +310,72 @@ ASSIGN_RESULT=$(sui client call \
         $JOB_ID \
         $JOB_CAP_ID \
         $FREELANCER_ADDRESS \
+        $CLOCK \
+    --gas-budget 100000000 \
+    --json 2>&1) || true
+
+echo ""
+echo -e "${GREEN}========================================${NC}"
+echo -e "${GREEN}ASSIGN RESULT:${NC}"
+echo -e "${GREEN}========================================${NC}"
+echo "$ASSIGN_RESULT"
+
+# Check if assignment succeeded
+if echo "$ASSIGN_RESULT" | grep -q "\"status\": \"success\""; then
+    echo ""
+    echo -e "${GREEN}SUCCESS: Freelancer assigned!${NC}"
+else
+    echo ""
+    echo -e "${RED}FAILED: Check output above${NC}"
+    exit 1
+fi
+
+sleep 2
+
+# ========== STEP 8: Start job as FREELANCER ==========
+echo -e "\n${GREEN}[8/8] Starting job as FREELANCER...${NC}"
+echo -e "${YELLOW}Freelancer calls start_job with their own profile${NC}"
+
+sui client switch --address $FREELANCER_ADDRESS
+
+echo ""
+echo "Calling start_job with:"
+echo "  JOB_ID: $JOB_ID"
+echo "  FREELANCER_PROFILE_ID: $FREELANCER_PROFILE_ID"
+echo ""
+
+START_RESULT=$(sui client call \
+    --package $PACKAGE_ID \
+    --module job_escrow \
+    --function start_job \
+    --args \
+        $JOB_ID \
         $FREELANCER_PROFILE_ID \
         $CLOCK \
     --gas-budget 100000000 \
     --json 2>&1) || true
 
 echo ""
-echo -e "${RED}========================================${NC}"
-echo -e "${RED}RESULT:${NC}"
-echo -e "${RED}========================================${NC}"
-echo "$ASSIGN_RESULT"
+echo -e "${GREEN}========================================${NC}"
+echo -e "${GREEN}START RESULT:${NC}"
+echo -e "${GREEN}========================================${NC}"
+echo "$START_RESULT"
 
-# Check if it failed as expected
-if echo "$ASSIGN_RESULT" | grep -q "ObjectNotFound\|InvalidOwner\|not owned\|MutableObjectUsedAsImmutable"; then
+# Check if start succeeded
+if echo "$START_RESULT" | grep -q "\"status\": \"success\""; then
     echo ""
     echo -e "${GREEN}========================================${NC}"
-    echo -e "${GREEN}SUCCESS: Reproduced the ownership error!${NC}"
+    echo -e "${GREEN}SUCCESS: Job workflow completed!${NC}"
     echo -e "${GREEN}========================================${NC}"
     echo ""
-    echo "The error confirms that CLIENT cannot pass FREELANCER's Profile"
-    echo "because CLIENT doesn't own it. This is the expected blockchain behavior."
+    echo "The job is now IN_PROGRESS. The freelancer can submit milestones."
     echo ""
-    echo "SOLUTION: Implement two-phase assignment pattern:"
-    echo "  1. Client calls select_freelancer() - no profile needed"
-    echo "  2. Freelancer calls confirm_assignment() - provides own profile"
+    echo "Fix implemented:"
+    echo "  1. assign_freelancer - Client assigns without needing freelancer's profile"
+    echo "  2. start_job - Freelancer starts work and provides their own profile"
 else
     echo ""
-    echo -e "${YELLOW}Unexpected result - check output above${NC}"
+    echo -e "${RED}FAILED: Check output above${NC}"
 fi
 
 echo ""
