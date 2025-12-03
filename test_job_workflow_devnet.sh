@@ -10,8 +10,8 @@ set +e
 CLIENT_ADDRESS="0x036a00032023f00dfe8a64e1e1f254e740ce5ef6ed92e8aed344bff23a71013d"
 FREELANCER_ADDRESS="0xfdcb8d759f590a675891052e2f7b5bef56e5f4e348ce55003ce4194cafdea65a"
 
-PACKAGE_ID="0x7d5a217972f2eab3f40adc9603ac8f94bb6917ccc1e0901aeeb9150dc7b5075d"
-IDENTITY_REGISTRY_ID="0xfc89a073bd673b8ece412740b738e885b8471f8aff0c445a03295a3ca768672a"
+PACKAGE_ID="0x78a9a8d37a5e586ad4b0c9bbe712894c2b8eeb865e408079b99f43967e36e9c1"
+IDENTITY_REGISTRY_ID="0x2252a6848868900729573bc599767529b439a5914eaff3ce7a6e832e631f5326"
 # ===================================
 
 CLOCK="0x6"
@@ -26,6 +26,28 @@ NC='\033[0m' # No Color
 extract_json() {
     # Remove warning lines that appear before JSON output
     grep -v '^\[warning\]'
+}
+
+# Helper function to validate object belongs to current package
+validate_object_package() {
+    local obj_id=$1
+    local expected_module=$2  # e.g., "profile_nft::Profile"
+    # The JSON output uses .type (not .data.type)
+    local actual_type=$(sui client object $obj_id --json 2>/dev/null | extract_json | jq -r '.type // empty')
+
+    if [ -z "$actual_type" ]; then
+        echo -e "${RED}ERROR: Could not get type for object $obj_id${NC}"
+        return 1
+    fi
+
+    local expected_type="${PACKAGE_ID}::${expected_module}"
+    if [ "$actual_type" != "$expected_type" ]; then
+        echo -e "${YELLOW}Package mismatch for object $obj_id${NC}"
+        echo "  Expected: $expected_type"
+        echo "  Actual:   $actual_type"
+        return 1
+    fi
+    return 0
 }
 
 echo -e "${YELLOW}========================================${NC}"
@@ -111,21 +133,29 @@ sui client switch --address $CLIENT_ADDRESS
 # ========== STEP 3: Create CLIENT profile ==========
 echo -e "\n${GREEN}[3/8] Creating CLIENT profile...${NC}"
 
-# Check if client already has a profile (exact match to avoid ProfileCap)
-CLIENT_PROFILE_ID=$(sui client objects --json 2>/dev/null | jq -r '.[] | select(.data.type | endswith("::Profile")) | .data.objectId' | head -1)
+# Check if client already has a profile with EXACT package match (not just any Profile)
+# This ensures we use profiles from the current package version
+CLIENT_PROFILE_ID=$(sui client objects --json 2>/dev/null | extract_json | jq -r --arg pkg "$PACKAGE_ID" '.[] | select(.data.type == ($pkg + "::profile_nft::Profile")) | .data.objectId' | head -1)
 
 if [ -n "$CLIENT_PROFILE_ID" ] && [ "$CLIENT_PROFILE_ID" != "null" ]; then
-    echo "Client already has profile: $CLIENT_PROFILE_ID"
-else
+    echo "Client already has profile with current package: $CLIENT_PROFILE_ID"
+    # Validate the profile package just to be sure
+    if ! validate_object_package "$CLIENT_PROFILE_ID" "profile_nft::Profile"; then
+        echo -e "${YELLOW}Profile validation failed, will create new profile${NC}"
+        CLIENT_PROFILE_ID=""
+    fi
+fi
+
+if [ -z "$CLIENT_PROFILE_ID" ] || [ "$CLIENT_PROFILE_ID" == "null" ]; then
     echo "Creating new client profile..."
-    sui client call \
+    CREATE_PROFILE_RESULT=$(sui client call \
         --package $PACKAGE_ID \
         --module profile_nft \
         --function create_profile \
         --args \
             $IDENTITY_REGISTRY_ID \
             1 \
-            '"zklogin_client_test_sub"' \
+            '"zklogin_client_test_sub_v2"' \
             '"client@test.com"' \
             '"TestClient"' \
             '"Test Client Real Name"' \
@@ -133,10 +163,20 @@ else
             '["hiring", "tech"]' \
             '"avatar_blob_id"' \
             $CLOCK \
-        --gas-budget 100000000
+        --gas-budget 100000000 \
+        --json 2>&1) || true
 
-    sleep 3
-    CLIENT_PROFILE_ID=$(sui client objects --json 2>/dev/null | jq -r '.[] | select(.data.type | endswith("::Profile")) | .data.objectId' | head -1)
+    # Extract profile ID directly from transaction result
+    CREATE_PROFILE_JSON=$(echo "$CREATE_PROFILE_RESULT" | extract_json)
+    if echo "$CREATE_PROFILE_JSON" | jq -e '.effects.status.status == "success"' > /dev/null 2>&1; then
+        CLIENT_PROFILE_ID=$(echo "$CREATE_PROFILE_JSON" | jq -r --arg pkg "$PACKAGE_ID" '.objectChanges[] | select(.objectType == ($pkg + "::profile_nft::Profile")) | .objectId' | head -1)
+        echo -e "${GREEN}Profile created successfully: $CLIENT_PROFILE_ID${NC}"
+    else
+        echo -e "${RED}Profile creation failed!${NC}"
+        echo "$CREATE_PROFILE_JSON" | jq '.effects.status' 2>/dev/null || echo "$CREATE_PROFILE_RESULT"
+    fi
+
+    sleep 2
 fi
 
 echo "CLIENT_PROFILE_ID: $CLIENT_PROFILE_ID"
@@ -151,20 +191,28 @@ echo -e "\n${GREEN}[4/8] Creating FREELANCER profile...${NC}"
 
 sui client switch --address $FREELANCER_ADDRESS
 
-FREELANCER_PROFILE_ID=$(sui client objects --json 2>/dev/null | jq -r '.[] | select(.data.type | endswith("::Profile")) | .data.objectId' | head -1)
+# Check if freelancer already has a profile with EXACT package match
+FREELANCER_PROFILE_ID=$(sui client objects --json 2>/dev/null | extract_json | jq -r --arg pkg "$PACKAGE_ID" '.[] | select(.data.type == ($pkg + "::profile_nft::Profile")) | .data.objectId' | head -1)
 
 if [ -n "$FREELANCER_PROFILE_ID" ] && [ "$FREELANCER_PROFILE_ID" != "null" ]; then
-    echo "Freelancer already has profile: $FREELANCER_PROFILE_ID"
-else
+    echo "Freelancer already has profile with current package: $FREELANCER_PROFILE_ID"
+    # Validate the profile package just to be sure
+    if ! validate_object_package "$FREELANCER_PROFILE_ID" "profile_nft::Profile"; then
+        echo -e "${YELLOW}Profile validation failed, will create new profile${NC}"
+        FREELANCER_PROFILE_ID=""
+    fi
+fi
+
+if [ -z "$FREELANCER_PROFILE_ID" ] || [ "$FREELANCER_PROFILE_ID" == "null" ]; then
     echo "Creating new freelancer profile..."
-    sui client call \
+    CREATE_FL_PROFILE_RESULT=$(sui client call \
         --package $PACKAGE_ID \
         --module profile_nft \
         --function create_profile \
         --args \
             $IDENTITY_REGISTRY_ID \
             0 \
-            '"zklogin_freelancer_test_sub"' \
+            '"zklogin_freelancer_test_sub_v2"' \
             '"freelancer@test.com"' \
             '"TestFreelancer"' \
             '"Test Freelancer Real Name"' \
@@ -172,10 +220,20 @@ else
             '["move", "rust", "sui"]' \
             '"avatar_blob_id"' \
             $CLOCK \
-        --gas-budget 100000000
+        --gas-budget 100000000 \
+        --json 2>&1) || true
 
-    sleep 3
-    FREELANCER_PROFILE_ID=$(sui client objects --json 2>/dev/null | jq -r '.[] | select(.data.type | endswith("::Profile")) | .data.objectId' | head -1)
+    # Extract profile ID directly from transaction result
+    CREATE_FL_PROFILE_JSON=$(echo "$CREATE_FL_PROFILE_RESULT" | extract_json)
+    if echo "$CREATE_FL_PROFILE_JSON" | jq -e '.effects.status.status == "success"' > /dev/null 2>&1; then
+        FREELANCER_PROFILE_ID=$(echo "$CREATE_FL_PROFILE_JSON" | jq -r --arg pkg "$PACKAGE_ID" '.objectChanges[] | select(.objectType == ($pkg + "::profile_nft::Profile")) | .objectId' | head -1)
+        echo -e "${GREEN}Freelancer profile created successfully: $FREELANCER_PROFILE_ID${NC}"
+    else
+        echo -e "${RED}Freelancer profile creation failed!${NC}"
+        echo "$CREATE_FL_PROFILE_JSON" | jq '.effects.status' 2>/dev/null || echo "$CREATE_FL_PROFILE_RESULT"
+    fi
+
+    sleep 2
 fi
 
 echo "FREELANCER_PROFILE_ID: $FREELANCER_PROFILE_ID"
@@ -214,6 +272,20 @@ if [ -z "$BUDGET_COIN" ]; then
     BUDGET_COIN=$(sui client gas --json | jq -r '.[1].gasCoinId')
 fi
 echo "Budget coin: $BUDGET_COIN"
+
+# Validate CLIENT_PROFILE before calling create_job
+echo "Validating CLIENT_PROFILE package..."
+if ! validate_object_package "$CLIENT_PROFILE_ID" "profile_nft::Profile"; then
+    echo -e "${RED}ERROR: CLIENT_PROFILE has wrong package version!${NC}"
+    echo "The profile was created with a different package deployment."
+    echo "You need to create a new profile with the current package."
+    echo ""
+    echo "Possible solutions:"
+    echo "  1. Delete the old profile and run this script again"
+    echo "  2. Deploy a new package and update PACKAGE_ID in this script"
+    exit 1
+fi
+echo -e "${GREEN}Profile validation passed!${NC}"
 
 echo "Creating job..."
 JOB_RESULT=$(sui client call \
@@ -264,10 +336,10 @@ fi
 # Get JobCap ID from same transaction result (not from all owned objects)
 JOB_CAP_ID=$(echo "$JOB_JSON" | jq -r '.objectChanges[] | select(.objectType != null and (.objectType | endswith("::JobCap"))) | .objectId' 2>/dev/null | head -1)
 
-# Fallback: query owned objects if not found in transaction
+# Fallback: query owned objects if not found in transaction (with exact package match)
 if [ -z "$JOB_CAP_ID" ] || [ "$JOB_CAP_ID" == "null" ]; then
     echo "Trying to extract JOB_CAP_ID from owned objects..."
-    JOB_CAP_ID=$(sui client objects --json | extract_json | jq -r '.[] | select(.data.type | endswith("::JobCap")) | .data.objectId' | head -1)
+    JOB_CAP_ID=$(sui client objects --json | extract_json | jq -r --arg pkg "$PACKAGE_ID" '.[] | select(.data.type == ($pkg + "::job_escrow::JobCap")) | .data.objectId' | head -1)
 fi
 
 echo "JOB_ID: $JOB_ID"
