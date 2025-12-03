@@ -341,8 +341,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
 
             assert!(job_escrow::is_applicant(&job, FREELANCER), 0);
             assert!(job_escrow::get_applicant_count(&job) == 1, 1);
@@ -372,8 +371,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -383,8 +381,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
 
             assert!(job_escrow::get_applicant_count(&job) == 2, 0);
             assert!(job_escrow::is_applicant(&job, FREELANCER), 1);
@@ -414,12 +411,10 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
 
             // Apply again - should fail
-            let cap2 = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap2, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
 
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
@@ -443,9 +438,8 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
             // Client tries to apply to own job
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -473,8 +467,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -501,8 +494,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -613,8 +605,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job2 = ts::take_shared_by_id<Job>(&scenario, job2_id);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job2, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job2, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job2);
         };
@@ -768,8 +759,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -820,8 +810,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -872,8 +861,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -918,8 +906,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -979,8 +966,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -1045,8 +1031,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -1110,8 +1095,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -1179,8 +1163,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -1267,8 +1250,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -1371,8 +1353,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -1428,8 +1409,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -1513,8 +1493,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -1627,8 +1606,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -1823,8 +1801,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -1833,8 +1810,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -1843,8 +1819,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -1853,8 +1828,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -1863,8 +1837,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -1912,8 +1885,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -2063,8 +2035,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -2120,8 +2091,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -2277,8 +2247,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -2333,9 +2302,8 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
             // Should succeed - before deadline
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -2374,8 +2342,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -2407,8 +2374,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -2561,8 +2527,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -2613,8 +2578,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -2636,8 +2600,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -2696,8 +2659,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -2842,8 +2804,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };
@@ -2901,8 +2862,7 @@ module zk_freelance::job_escrow_tests {
         {
             let mut job = ts::take_shared<Job>(&scenario);
             let profile = ts::take_from_sender<Profile>(&scenario);
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            job_escrow::apply_for_job(&mut job, &profile, cap, &clock, ts::ctx(&mut scenario));
+            job_escrow::apply_for_job(&mut job, &profile, &clock, ts::ctx(&mut scenario));
             ts::return_to_sender(&scenario, profile);
             ts::return_shared(job);
         };

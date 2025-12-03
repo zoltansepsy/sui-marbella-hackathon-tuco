@@ -11,7 +11,7 @@ CLIENT_ADDRESS="0x036a00032023f00dfe8a64e1e1f254e740ce5ef6ed92e8aed344bff23a7101
 FREELANCER_ADDRESS="0xfdcb8d759f590a675891052e2f7b5bef56e5f4e348ce55003ce4194cafdea65a"
 
 PACKAGE_ID="0x7d5a217972f2eab3f40adc9603ac8f94bb6917ccc1e0901aeeb9150dc7b5075d"
-IDENTITY_REGISTRY_ID="0x6bfcca290d5c0cac1e58805a9c1d9e97f93c08ccf333962341dc920e9adadc6d"
+IDENTITY_REGISTRY_ID="0xfc89a073bd673b8ece412740b738e885b8471f8aff0c445a03295a3ca768672a"
 # ===================================
 
 CLOCK="0x6"
@@ -230,21 +230,29 @@ JOB_RESULT=$(sui client call \
     --gas-budget 100000000 \
     --json 2>&1) || true
 
-echo "$JOB_RESULT"
-
 sleep 3
 
 # Extract only JSON from result (remove warning lines)
 JOB_JSON=$(echo "$JOB_RESULT" | extract_json)
 
+# Check if transaction succeeded
+if ! echo "$JOB_JSON" | jq -e '.effects.status.status == "success"' > /dev/null 2>&1; then
+    echo -e "${RED}ERROR: create_job transaction failed${NC}"
+    # Show the error details
+    echo "$JOB_JSON" | jq '.effects.status' 2>/dev/null || echo "$JOB_RESULT"
+    exit 1
+fi
+
+echo -e "${GREEN}Transaction succeeded!${NC}"
+
 # Get Job ID (shared object) - try multiple extraction methods
-# Method 1: From objectChanges (look for ::job_escrow::Job type - use endswith for exact match, not contains)
-JOB_ID=$(echo "$JOB_JSON" | jq -r '.objectChanges[] | select(.objectType | endswith("::job_escrow::Job")) | .objectId' 2>/dev/null | head -1)
+# Method 1: From objectChanges (look for ::Job type)
+JOB_ID=$(echo "$JOB_JSON" | jq -r '.objectChanges[] | select(.objectType != null and (.objectType | endswith("::Job"))) | .objectId' 2>/dev/null | head -1)
 
 # Method 2: From events if method 1 failed
 if [ -z "$JOB_ID" ] || [ "$JOB_ID" == "null" ]; then
     echo "Trying to extract JOB_ID from events..."
-    JOB_ID=$(echo "$JOB_JSON" | jq -r '.events[0].parsedJson.job_id' 2>/dev/null)
+    JOB_ID=$(echo "$JOB_JSON" | jq -r '.events[] | select(.type | contains("JobCreated")) | .parsedJson.job_id' 2>/dev/null | head -1)
 fi
 
 # Method 3: From shared object in created array
@@ -253,8 +261,14 @@ if [ -z "$JOB_ID" ] || [ "$JOB_ID" == "null" ]; then
     JOB_ID=$(echo "$JOB_JSON" | jq -r '.effects.created[] | select(.owner.Shared) | .reference.objectId' 2>/dev/null | head -1)
 fi
 
-# Get JobCap ID (owned by client) - exact match to ::JobCap
-JOB_CAP_ID=$(sui client objects --json | extract_json | jq -r '.[] | select(.data.type | endswith("::JobCap")) | .data.objectId' | head -1)
+# Get JobCap ID from same transaction result (not from all owned objects)
+JOB_CAP_ID=$(echo "$JOB_JSON" | jq -r '.objectChanges[] | select(.objectType != null and (.objectType | endswith("::JobCap"))) | .objectId' 2>/dev/null | head -1)
+
+# Fallback: query owned objects if not found in transaction
+if [ -z "$JOB_CAP_ID" ] || [ "$JOB_CAP_ID" == "null" ]; then
+    echo "Trying to extract JOB_CAP_ID from owned objects..."
+    JOB_CAP_ID=$(sui client objects --json | extract_json | jq -r '.[] | select(.data.type | endswith("::JobCap")) | .data.objectId' | head -1)
+fi
 
 echo "JOB_ID: $JOB_ID"
 echo "JOB_CAP_ID: $JOB_CAP_ID"
@@ -274,13 +288,15 @@ echo -e "\n${GREEN}[6/8] Applying for job as FREELANCER...${NC}"
 
 sui client switch --address $FREELANCER_ADDRESS
 
-# Use PTB to create JobProfileUpdateCap and apply_for_job in a single transaction
-# This is necessary because create_job_profile_update_cap returns a value that must be consumed
-echo "Creating JobProfileUpdateCap and applying for job (PTB)..."
-APPLY_RESULT=$(sui client ptb \
-    --move-call ${PACKAGE_ID}::profile_nft::create_job_profile_update_cap @${FREELANCER_PROFILE_ID} \
-    --assign cap \
-    --move-call ${PACKAGE_ID}::job_escrow::apply_for_job @${JOB_ID} @${FREELANCER_PROFILE_ID} cap @${CLOCK} \
+echo "Applying for job..."
+APPLY_RESULT=$(sui client call \
+    --package $PACKAGE_ID \
+    --module job_escrow \
+    --function apply_for_job \
+    --args \
+        $JOB_ID \
+        $FREELANCER_PROFILE_ID \
+        $CLOCK \
     --gas-budget 100000000 \
     --json 2>&1) || true
 
