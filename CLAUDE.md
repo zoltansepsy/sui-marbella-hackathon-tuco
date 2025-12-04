@@ -168,9 +168,9 @@ public struct JobCap has key, store {
 
 **Entry Functions** (with mandatory profile integration):
 - `create_job(client_profile, ...)` - Create job with escrow funding, adds to client's active jobs
-- `apply_for_job()` - Freelancer applies (no profile required)
-- `assign_freelancer(job, cap, freelancer_addr, freelancer_profile, ...)` - Client selects freelancer, adds to freelancer's active jobs
-- `start_job()` - Freelancer begins work (no profile change)
+- `apply_for_job(freelancer_profile, ...)` - Freelancer applies (profile required for validation, read-only)
+- `assign_freelancer(job, cap, freelancer_addr, ...)` - Client selects freelancer (no profiles needed - ownership fix)
+- `start_job(freelancer_profile, ...)` - Freelancer begins work, updates profile (total_jobs +1, active_jobs updated)
 - `submit_milestone()` - Freelancer submits with proof blob ID (no profile change)
 - `approve_milestone(job, cap, milestone_id, client_profile, freelancer_profile, ...)` - Client approves, releases funds, updates profiles on job completion
 - `add_milestone()` - Client adds milestone before assignment (no profile change)
@@ -240,11 +240,12 @@ public struct ProfileCap has key, store {
 
 #### JobService ([jobService.ts](app/services/jobService.ts))
 
-**Transaction Builders** (DEV 2 to implement - **IMPORTANT: All require Profile objects**):
+**Transaction Builders** (DEV 2 to implement - **IMPORTANT: Profile requirements vary by function**):
 ```typescript
 createJobTransaction(clientProfileId, title, descriptionBlobId, budgetAmount, deadline): Transaction
-applyForJobTransaction(jobId): Transaction
-assignFreelancerTransaction(jobId, jobCapId, freelancerAddress, freelancerProfileId): Transaction
+applyForJobTransaction(jobId, freelancerProfileId): Transaction  // Profile for validation only
+assignFreelancerTransaction(jobId, jobCapId, freelancerAddress): Transaction  // No profile needed (ownership fix)
+startJobTransaction(jobId, freelancerProfileId): Transaction  // Profile updated here
 submitMilestoneTransaction(jobId, milestoneId, proofBlobId): Transaction
 approveMilestoneTransaction(jobId, jobCapId, milestoneId, clientProfileId, freelancerProfileId): Transaction
 cancelJobTransaction(jobId, jobCapId, clientProfileId): Transaction  // For OPEN state
@@ -281,12 +282,23 @@ signAndExecute({ transaction: tx }, {
   }
 });
 
-// Assign freelancer - requires freelancer profile
+// Apply for job - requires freelancer profile for validation
+const applyTx = jobService.applyForJobTransaction(
+  jobId,
+  freelancerProfileId  // Freelancer's profile (read-only validation)
+);
+
+// Assign freelancer - NO profile needed (ownership fix)
 const assignTx = jobService.assignFreelancerTransaction(
   jobId,
   jobCapId,
-  freelancerAddress,
-  freelancerProfileId  // Freelancer's profile object ID
+  freelancerAddress  // No profile parameter
+);
+
+// Start job - requires freelancer profile for update
+const startTx = jobService.startJobTransaction(
+  jobId,
+  freelancerProfileId  // Profile updated: total_jobs +1, active_jobs
 );
 
 // Approve milestone - requires BOTH profiles
