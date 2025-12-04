@@ -145,25 +145,3 @@ All **98 Move tests pass** after the changes.
 5. Freelancer submits milestone (SUBMITTED)
 6. Client approves milestone (COMPLETED)
 ```
-
-## Open Discussion: JobProfileUpdateCap
-
-The `JobProfileUpdateCap` mechanism was originally designed to allow the client to update the freelancer's profile during `assign_freelancer`. Now that profile updates happen in `start_job` (where the freelancer is the caller), the cap is technically redundant for the profile update.
-
-**Current usage of the cap:**
-1. Created by freelancer during `apply_for_job`
-2. Stored in `job.applicant_caps` table
-3. Checked in `assign_freelancer` to verify freelancer applied
-4. Used in `start_job` to call `increment_total_jobs`
-
-**Potential simplification:**
-Since the freelancer owns their profile and is the caller in `start_job`, the cap is not needed to authorize the profile update. The cap could be:
-- Kept only for verification (proof freelancer applied)
-- Removed entirely in favor of just the `applicants` vector
-
-This simplification is a potential future improvement but not required for the ownership fix to work.
-
----
-
-*Document generated: December 2024*
-*Related PR/Issue: Job lifecycle breaks at assign_freelancer due to ownership*
