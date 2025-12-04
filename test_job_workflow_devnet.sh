@@ -7,14 +7,19 @@ set +e
 
 # ========== CONFIGURATION ==========
 # MODIFY THESE ADDRESSES FOR YOUR TEST
-CLIENT_ADDRESS="0x036a00032023f00dfe8a64e1e1f254e740ce5ef6ed92e8aed344bff23a71013d"
-FREELANCER_ADDRESS="0xfdcb8d759f590a675891052e2f7b5bef56e5f4e348ce55003ce4194cafdea65a"
+CLIENT_ADDRESS="0x0d4711f34dfa39cd0721b4b1472e6100f05929bc4483ec75dc6762c4f35d5e72"
+FREELANCER_ADDRESS="0x3a76fb49bb99394078be77c4e25fe6262c4f1cdbbbf196bdd55e0e6e55e8a0f0"
 
 PACKAGE_ID="0x78a9a8d37a5e586ad4b0c9bbe712894c2b8eeb865e408079b99f43967e36e9c1"
 IDENTITY_REGISTRY_ID="0x2252a6848868900729573bc599767529b439a5914eaff3ce7a6e832e631f5326"
 # ===================================
 
 CLOCK="0x6"
+
+# Generate unique zkLogin subjects for this test run
+TIMESTAMP=$(date +%s)
+ZKLOGIN_CLIENT_SUB="zklogin_client_${TIMESTAMP}"
+ZKLOGIN_FREELANCER_SUB="zklogin_freelancer_${TIMESTAMP}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -106,6 +111,10 @@ sui client envs
 echo ""
 echo "CLIENT_ADDRESS: $CLIENT_ADDRESS"
 echo "FREELANCER_ADDRESS: $FREELANCER_ADDRESS"
+echo ""
+echo "Using zkLogin subjects:"
+echo "  Client: $ZKLOGIN_CLIENT_SUB"
+echo "  Freelancer: $ZKLOGIN_FREELANCER_SUB"
 
 # ========== STEP 2: Verify addresses exist in keystore ==========
 echo -e "\n${GREEN}[2/8] Verifying addresses in keystore...${NC}"
@@ -155,7 +164,7 @@ if [ -z "$CLIENT_PROFILE_ID" ] || [ "$CLIENT_PROFILE_ID" == "null" ]; then
         --args \
             $IDENTITY_REGISTRY_ID \
             1 \
-            '"zklogin_client_test_sub_v2"' \
+            "\"$ZKLOGIN_CLIENT_SUB\"" \
             '"client@test.com"' \
             '"TestClient"' \
             '"Test Client Real Name"' \
@@ -173,6 +182,8 @@ if [ -z "$CLIENT_PROFILE_ID" ] || [ "$CLIENT_PROFILE_ID" == "null" ]; then
         echo -e "${GREEN}Profile created successfully: $CLIENT_PROFILE_ID${NC}"
     else
         echo -e "${RED}Profile creation failed!${NC}"
+        echo -e "${YELLOW}Attempted zkLogin subject: $ZKLOGIN_CLIENT_SUB${NC}"
+        echo "Full transaction output:"
         echo "$CREATE_PROFILE_JSON" | jq '.effects.status' 2>/dev/null || echo "$CREATE_PROFILE_RESULT"
     fi
 
@@ -212,7 +223,7 @@ if [ -z "$FREELANCER_PROFILE_ID" ] || [ "$FREELANCER_PROFILE_ID" == "null" ]; th
         --args \
             $IDENTITY_REGISTRY_ID \
             0 \
-            '"zklogin_freelancer_test_sub_v2"' \
+            "\"$ZKLOGIN_FREELANCER_SUB\"" \
             '"freelancer@test.com"' \
             '"TestFreelancer"' \
             '"Test Freelancer Real Name"' \
@@ -230,6 +241,8 @@ if [ -z "$FREELANCER_PROFILE_ID" ] || [ "$FREELANCER_PROFILE_ID" == "null" ]; th
         echo -e "${GREEN}Freelancer profile created successfully: $FREELANCER_PROFILE_ID${NC}"
     else
         echo -e "${RED}Freelancer profile creation failed!${NC}"
+        echo -e "${YELLOW}Attempted zkLogin subject: $ZKLOGIN_FREELANCER_SUB${NC}"
+        echo "Full transaction output:"
         echo "$CREATE_FL_PROFILE_JSON" | jq '.effects.status' 2>/dev/null || echo "$CREATE_FL_PROFILE_RESULT"
     fi
 
