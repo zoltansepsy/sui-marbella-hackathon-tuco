@@ -4,7 +4,7 @@ module zk_freelance::profile_nft_tests_minimal {
     use sui::test_scenario::{Self as ts, Scenario};
     use sui::clock::{Self, Clock};
     use sui::object;
-    use zk_freelance::profile_nft::{Self, Profile, ProfileCap, IdentityRegistry, JobProfileUpdateCap};
+    use zk_freelance::profile_nft::{Self, Profile, ProfileCap, IdentityRegistry};
 
     const USER_A: address = @0xA;
     const USER_B: address = @0xB;
@@ -670,17 +670,14 @@ module zk_freelance::profile_nft_tests_minimal {
             let clock = create_clock(&mut scenario);
             let job_id = object::id_from_address(@0x111);
 
-            // Create capability and increment total_jobs
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-            profile_nft::increment_total_jobs(&mut profile, &cap, &clock);
+            // Increment total_jobs using owner-based function
+            profile_nft::increment_own_total_jobs(&mut profile, &clock, ts::ctx(&mut scenario));
             profile_nft::add_active_job(&mut profile, job_id, &clock);
 
             assert!(profile_nft::get_total_jobs(&profile) == 1, 0);
             assert!(profile_nft::get_active_jobs_count(&profile) == 1, 1);
             assert!(profile_nft::is_job_active(&profile, job_id), 2);
 
-            // Clean up capability
-            sui::test_utils::destroy(cap);
             clock::destroy_for_testing(clock);
             ts::return_to_sender(&scenario, profile);
         };
@@ -706,9 +703,6 @@ module zk_freelance::profile_nft_tests_minimal {
             let mut profile = ts::take_from_sender<Profile>(&scenario);
             let clock = create_clock(&mut scenario);
 
-            // Create capability once for all jobs
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-
             let mut i = 0;
             while (i < 10) {
                 let addr = if (i == 0) { @0x200 }
@@ -722,7 +716,7 @@ module zk_freelance::profile_nft_tests_minimal {
                     else if (i == 8) { @0x208 }
                     else { @0x209 };
                 let job_id = object::id_from_address(addr);
-                profile_nft::increment_total_jobs(&mut profile, &cap, &clock);
+                profile_nft::increment_own_total_jobs(&mut profile, &clock, ts::ctx(&mut scenario));
                 profile_nft::add_active_job(&mut profile, job_id, &clock);
                 i = i + 1;
             };
@@ -730,7 +724,6 @@ module zk_freelance::profile_nft_tests_minimal {
             assert!(profile_nft::get_total_jobs(&profile) == 10, 0);
             assert!(profile_nft::get_active_jobs_count(&profile) == 10, 1);
 
-            sui::test_utils::destroy(cap);
             clock::destroy_for_testing(clock);
             ts::return_to_sender(&scenario, profile);
         };
@@ -1357,11 +1350,8 @@ module zk_freelance::profile_nft_tests_minimal {
             let clock = create_clock(&mut scenario);
             let job_id = object::id_from_address(@0xCCCC);
 
-            // Create capability for incrementing total_jobs
-            let cap = profile_nft::create_job_profile_update_cap(&profile, ts::ctx(&mut scenario));
-
             // Add job
-            profile_nft::increment_total_jobs(&mut profile, &cap, &clock);
+            profile_nft::increment_own_total_jobs(&mut profile, &clock, ts::ctx(&mut scenario));
             profile_nft::add_active_job(&mut profile, job_id, &clock);
             assert!(profile_nft::is_job_active(&profile, job_id), 0);
             assert!(profile_nft::get_total_jobs(&profile) == 1, 1);
@@ -1371,12 +1361,11 @@ module zk_freelance::profile_nft_tests_minimal {
             assert!(!profile_nft::is_job_active(&profile, job_id), 2);
 
             // Re-add same job (should succeed - not a duplicate anymore)
-            profile_nft::increment_total_jobs(&mut profile, &cap, &clock);
+            profile_nft::increment_own_total_jobs(&mut profile, &clock, ts::ctx(&mut scenario));
             profile_nft::add_active_job(&mut profile, job_id, &clock);
             assert!(profile_nft::is_job_active(&profile, job_id), 3);
             assert!(profile_nft::get_total_jobs(&profile) == 2, 4); // total_jobs increments again
 
-            sui::test_utils::destroy(cap);
             clock::destroy_for_testing(clock);
             ts::return_to_sender(&scenario, profile);
         };

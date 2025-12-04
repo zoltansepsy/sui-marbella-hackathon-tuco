@@ -14,7 +14,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useJob } from "@/hooks";
+import { useJob, useCurrentProfile } from "@/hooks";
 import { JobData, JobState } from "@/services/types";
 import { createJobService } from "@/services";
 import {
@@ -66,6 +66,7 @@ export function JobDetailView({ jobId, open, onClose, onApplySuccess }: JobDetai
   const { mutate: signAndExecute } = useSignAndExecuteTransaction();
 
   const { job, isPending, error, refetch } = useJob(jobId);
+  const { profile: currentProfile, hasProfile } = useCurrentProfile();
   const [isApplying, setIsApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [applySuccess, setApplySuccess] = useState(false);
@@ -110,25 +111,25 @@ export function JobDetailView({ jobId, open, onClose, onApplySuccess }: JobDetai
 
   // Determine if user can apply
   const canApply = useMemo(() => {
-    if (!job || !currentAccount) return false;
+    if (!job || !currentAccount || !hasProfile) return false;
     if (isClient) return false;
     if (hasApplied) return false;
     if (isAssignedFreelancer) return false;
     if (job.state !== JobState.OPEN) return false;
     if (isDeadlinePassed(job.deadline)) return false;
     return true;
-  }, [job, currentAccount, isClient, hasApplied, isAssignedFreelancer]);
+  }, [job, currentAccount, hasProfile, isClient, hasApplied, isAssignedFreelancer]);
 
   // Handle job application
   const handleApply = async () => {
-    if (!job || !currentAccount) return;
+    if (!job || !currentAccount || !currentProfile) return;
 
     setIsApplying(true);
     setApplyError(null);
     setApplySuccess(false);
 
     try {
-      const tx = jobService.applyForJobTransaction(jobId);
+      const tx = jobService.applyForJobTransaction(jobId, currentProfile.objectId);
 
       signAndExecute(
         { transaction: tx },
@@ -386,6 +387,16 @@ export function JobDetailView({ jobId, open, onClose, onApplySuccess }: JobDetai
                     </div>
                   </CardContent>
                 </Card>
+              )}
+
+              {/* No Profile Warning */}
+              {!isClient && !hasProfile && currentAccount && job.state === JobState.OPEN && (
+                <Alert className="bg-yellow-50 border-yellow-200">
+                  <AlertCircle className="h-4 w-4 text-yellow-600" />
+                  <AlertDescription className="text-yellow-800">
+                    You need to create a profile before applying for jobs.
+                  </AlertDescription>
+                </Alert>
               )}
 
               {/* Already Applied Message */}

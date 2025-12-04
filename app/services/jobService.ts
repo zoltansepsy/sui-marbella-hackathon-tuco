@@ -36,13 +36,17 @@ export class JobService {
 
   /**
    * Create a new job with escrow funding
+   * Creates a Job object and JobCap, deposits budget into escrow.
+   * The client's profile is updated with the active job.
    *
-   * @param clientProfileId Client's Profile object ID
+   * @param clientProfileId Client's Profile object ID (mutable - will be updated)
    * @param title Job title
    * @param descriptionBlobId Walrus blob ID for job description
-   * @param budgetAmount Budget in MIST
+   * @param budgetAmount Budget in MIST (smallest SUI unit)
    * @param deadline Unix timestamp in milliseconds
-   * @returns Transaction to sign and execute
+   * @returns Transaction to sign and execute by the client
+   * @note State transition: Creates job in OPEN state
+   * @note Client profile updated: active_jobs incremented
    */
   createJobTransaction(
     clientProfileId: string,
@@ -76,16 +80,20 @@ export class JobService {
 
   /**
    * Apply for a job as freelancer
+   * The freelancer profile is used for ownership validation (read-only).
+   * Profile updates happen later in start_job, not during application.
    *
    * @param jobId Job object ID
-   * @returns Transaction to sign and execute
+   * @param freelancerProfileId Freelancer's Profile object ID (for validation)
+   * @returns Transaction to sign and execute by the freelancer
    */
-  applyForJobTransaction(jobId: string): Transaction {
+  applyForJobTransaction(jobId: string, freelancerProfileId: string): Transaction {
     const tx = new Transaction();
 
     tx.moveCall({
       arguments: [
         tx.object(jobId),
+        tx.object(freelancerProfileId), // Freelancer's Profile (read-only validation)
         tx.object("0x6"), // Clock
       ],
       target: `${this.packageId}::job_escrow::apply_for_job`,
@@ -96,18 +104,21 @@ export class JobService {
 
   /**
    * Assign freelancer to job (client only)
+   * Selects a freelancer from applicants. No profile objects needed due to ownership fix.
+   * The freelancer will update their own profile later when calling start_job.
    *
    * @param jobId Job object ID
-   * @param jobCapId JobCap object ID
-   * @param freelancerAddress Freelancer's address
-   * @param freelancerProfileId Freelancer's Profile object ID
-   * @returns Transaction to sign and execute
+   * @param jobCapId JobCap object ID (proves client owns the job)
+   * @param freelancerAddress Address of the freelancer to assign
+   * @returns Transaction to sign and execute by the client
+   * @note State transition: OPEN → ASSIGNED
+   * @note No profile updates at this stage (deferred to start_job)
+   * @note Requires freelancer to be in applicants list
    */
   assignFreelancerTransaction(
     jobId: string,
     jobCapId: string,
-    freelancerAddress: string,
-    freelancerProfileId: string
+    freelancerAddress: string
   ): Transaction {
     const tx = new Transaction();
 
@@ -116,7 +127,6 @@ export class JobService {
         tx.object(jobId),
         tx.object(jobCapId),
         tx.pure.address(freelancerAddress),
-        tx.object(freelancerProfileId), // Freelancer's Profile
         tx.object("0x6"), // Clock
       ],
       target: `${this.packageId}::job_escrow::assign_freelancer`,
@@ -127,15 +137,25 @@ export class JobService {
 
   /**
    * Start work on job (freelancer only)
+   * Freelancer provides their own profile for self-update via increment_own_total_jobs().
+   * This is where profile stats are updated (total_jobs, active_jobs).
    *
    * @param jobId Job object ID
-   * @returns Transaction to sign and execute
+   * @param freelancerProfileId Freelancer's Profile object ID (mutable - will be updated)
+   * @returns Transaction to sign and execute by the freelancer
+   * @note State transition: ASSIGNED → IN_PROGRESS
+   * @note Freelancer profile updated: total_jobs +1, active_jobs includes this job
+   * @note Ownership validated via ctx.sender() in Move contract
    */
-  startJobTransaction(jobId: string): Transaction {
+  startJobTransaction(jobId: string, freelancerProfileId: string): Transaction {
     const tx = new Transaction();
 
     tx.moveCall({
-      arguments: [tx.object(jobId), tx.object("0x6")],
+      arguments: [
+        tx.object(jobId),
+        tx.object(freelancerProfileId), // Freelancer's Profile
+        tx.object("0x6"), // Clock
+      ],
       target: `${this.packageId}::job_escrow::start_job`,
     });
 
@@ -144,11 +164,16 @@ export class JobService {
 
   /**
    * Submit milestone completion (freelancer only)
+   * Submits proof/deliverable (typically encrypted with Seal) for client review.
+   * No profile updates occur at this stage.
    *
    * @param jobId Job object ID
-   * @param milestoneId Milestone number
-   * @param proofBlobId Walrus blob ID for proof/deliverable
-   * @returns Transaction to sign and execute
+   * @param milestoneId Milestone number (0-indexed)
+   * @param proofBlobId Walrus blob ID for proof/deliverable (often encrypted)
+   * @returns Transaction to sign and execute by the freelancer
+   * @note State transition: IN_PROGRESS → SUBMITTED
+   * @note No profile updates at this stage
+   * @note Consider encrypting deliverable with Seal before uploading to Walrus
    */
   submitMilestoneTransaction(
     jobId: string,
@@ -175,13 +200,18 @@ export class JobService {
 
   /**
    * Approve milestone and release funds (client only)
+   * Releases escrowed funds to freelancer. If this is the final milestone,
+   * both profiles are updated with job completion stats.
    *
    * @param jobId Job object ID
-   * @param jobCapId JobCap object ID
-   * @param milestoneId Milestone number
-   * @param clientProfileId Client's Profile object ID
-   * @param freelancerProfileId Freelancer's Profile object ID
-   * @returns Transaction to sign and execute
+   * @param jobCapId JobCap object ID (proves client owns the job)
+   * @param milestoneId Milestone number (0-indexed)
+   * @param clientProfileId Client's Profile object ID (mutable - updated on completion)
+   * @param freelancerProfileId Freelancer's Profile object ID (mutable - updated on completion)
+   * @returns Transaction to sign and execute by the client
+   * @note State transition: SUBMITTED → IN_PROGRESS (more milestones) or COMPLETED (final milestone)
+   * @note On job completion: both profiles updated with completed_jobs, total_amount, rating stats
+   * @note Active job removed from both profiles on completion
    */
   approveMilestoneTransaction(
     jobId: string,
@@ -209,12 +239,17 @@ export class JobService {
 
   /**
    * Add milestone to job (client only, before assignment)
+   * Can only add milestones while job is in OPEN state (before freelancer assigned).
+   * No profile updates occur.
    *
    * @param jobId Job object ID
-   * @param jobCapId JobCap object ID
+   * @param jobCapId JobCap object ID (proves client owns the job)
    * @param description Milestone description
-   * @param amount Amount in MIST
-   * @returns Transaction to sign and execute
+   * @param amount Amount in MIST for this milestone
+   * @returns Transaction to sign and execute by the client
+   * @note Can only be called in OPEN state (before freelancer assignment)
+   * @note No profile updates
+   * @note Total milestone amounts should not exceed job budget
    */
   addMilestoneTransaction(
     jobId: string,
@@ -238,12 +273,18 @@ export class JobService {
   }
 
   /**
-   * Cancel job and refund (client only, OPEN state - no freelancer assigned)
+   * Cancel job and refund escrow (client only, OPEN state only)
+   * Use this when no freelancer has been assigned yet.
+   * Escrow funds returned to client, job removed from client profile.
    *
    * @param jobId Job object ID
-   * @param jobCapId JobCap object ID
-   * @param clientProfileId Client's Profile object ID
-   * @returns Transaction to sign and execute
+   * @param jobCapId JobCap object ID (proves client owns the job)
+   * @param clientProfileId Client's Profile object ID (mutable - active job removed)
+   * @returns Transaction to sign and execute by the client
+   * @note State transition: OPEN → CANCELLED
+   * @note Only works in OPEN state (no freelancer assigned)
+   * @note Client profile updated: active job removed
+   * @note Use cancelJobWithFreelancerTransaction if freelancer already assigned
    */
   cancelJobTransaction(
     jobId: string,
@@ -266,13 +307,19 @@ export class JobService {
   }
 
   /**
-   * Cancel job with freelancer assigned (client only, ASSIGNED state)
+   * Cancel job with freelancer assigned (client only, ASSIGNED state only)
+   * Use this when a freelancer has been assigned but work hasn't started yet.
+   * Escrow refunded to client, job removed from both profiles.
    *
    * @param jobId Job object ID
-   * @param jobCapId JobCap object ID
-   * @param clientProfileId Client's Profile object ID
-   * @param freelancerProfileId Freelancer's Profile object ID
-   * @returns Transaction to sign and execute
+   * @param jobCapId JobCap object ID (proves client owns the job)
+   * @param clientProfileId Client's Profile object ID (mutable - active job removed)
+   * @param freelancerProfileId Freelancer's Profile object ID (mutable - active job removed)
+   * @returns Transaction to sign and execute by the client
+   * @note State transition: ASSIGNED → CANCELLED
+   * @note Only works in ASSIGNED state (freelancer assigned but not started)
+   * @note Both profiles updated: active job removed from both
+   * @note Use cancelJobTransaction if no freelancer assigned yet
    */
   cancelJobWithFreelancerTransaction(
     jobId: string,
